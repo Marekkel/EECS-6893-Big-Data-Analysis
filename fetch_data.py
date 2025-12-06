@@ -4,7 +4,7 @@ import time
 import datetime
 import os
 
-API_KEY = "**YOUR_TICKETMASTER_API_KEY**"  
+API_KEY = "hU8nqVdaW6fiwWs5AChzZRYxNVgasUtC"  
 URL = "https://app.ticketmaster.com/discovery/v2/events.json"
 
 COUNTRY = "US"
@@ -16,7 +16,21 @@ DMA_LIST = {
     "Chicago": 249,
     "Houston": 300,
     "Phoenix": 359,
-    "AllUS": 200,       # 可选：整个美国
+    "SanFrancisco": 347,
+    "Miami": 334,      
+    "Atlanta": 307,
+    "Boston": 306,
+    "Dallas": 251,
+    "WashingtonDC": 341,
+    "Seattle": 350,
+    "Denver": 328,
+    "Orlando": 336,
+    "LasVegas": 323,
+    "Philadelphia": 338,
+    "Minneapolis": 323,
+    "Detroit": 232,
+    "SanDiego": 348,
+    "AllUS": 200,  
 }
 
 OUTPUT_DIR = "ticketmaster_raw/"

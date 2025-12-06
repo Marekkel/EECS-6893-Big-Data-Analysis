@@ -4,7 +4,7 @@ import time
 import datetime
 import os
 
-API_KEY = "hU8nqVdaW6fiwWs5AChzZRYxNVgasUtC"
+API_KEY = "**YOUR_TICKETMASTER_API_KEY**"  
 URL = "https://app.ticketmaster.com/discovery/v2/events.json"
 
 COUNTRY = "US"

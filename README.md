@@ -218,42 +218,100 @@ pip install requests pandas numpy
 
 ## 快速开始
 
-### 步骤 1：采集数据
+### 🎯 **方式 1: 使用外部数据集（推荐）**
+
+如果你有外部 CSV 数据集（包含 SeatGeek, StubHub, Spotify 数据）：
+
+#### **Step 1: 配置 Dataproc**
+```bash
+# 1. 编辑配置文件
+cp dataproc_config.json.example dataproc_config.json
+# 填入你的 GCP 项目信息
+
+# 2. 创建 Dataproc 集群
+gcloud dataproc clusters create ticketmaster-cluster \
+  --region=us-east1 \
+  --num-workers=2 \
+  --master-machine-type=n1-standard-4 \
+  --worker-machine-type=n1-standard-4
+```
+
+详细设置指南：**[DATAPROC_SETUP.md](DATAPROC_SETUP.md)**
+
+#### **Step 2: 一键运行完整流程**
+```bash
+# Dataproc 模式（自动整合、上传、提交作业）
+python quickstart_integration.py --mode dataproc
+```
+
+**这会自动：**
+1. ✅ 整合外部数据（本地）
+2. ✅ 上传到 GCS
+3. ✅ 提交 ETL 作业（Dataproc）
+4. ✅ 提交分析作业（Dataproc）
+5. ✅ 提交 ML 票价预测（Dataproc）
+
+完整指南：**[EXTERNAL_DATA_WORKFLOW.md](EXTERNAL_DATA_WORKFLOW.md)**
+
+---
+
+### 🔧 **方式 2: 仅使用 Ticketmaster 数据**
+
+#### **Step 1: 采集数据**
 ```bash
 # 配置 API Key 后运行
 python fetch_data.py
 ```
 
-### 步骤 2：提交 Spark ETL 作业
+#### **Step 2: 上传数据到 GCS**
 ```bash
 # 上传原始数据到 GCS
 gsutil -m cp -r ticketmaster_raw/ gs://<your-bucket>/
 
-# 提交 ETL 作业
-gcloud dataproc jobs submit pyspark spark_etl_events.py \
+# 上传 Spark 脚本
+gsutil cp spark_*.py gs://<your-bucket>/scripts/
+```
+
+#### **Step 3: 提交 Spark ETL 作业**
+```bash
+gcloud dataproc jobs submit pyspark \
+  gs://<bucket>/scripts/spark_etl_events.py \
   --cluster=<cluster-name> \
   --region=us-east1 \
   -- --input gs://<bucket>/ticketmaster_raw/dt=*/events_*.jsonl \
      --output gs://<bucket>/ticketmaster_processed/events_parquet
 ```
 
-### 步骤 3：运行分析作业
+#### **Step 4: 运行分析作业**
 ```bash
-gcloud dataproc jobs submit pyspark spark_analysis_events.py \
+gcloud dataproc jobs submit pyspark \
+  gs://<bucket>/scripts/spark_analysis_events.py \
   --cluster=<cluster-name> \
   --region=us-east1 \
   -- --input gs://<bucket>/ticketmaster_processed/events_parquet \
      --output gs://<bucket>/ticketmaster_analytics
 ```
 
-### 步骤 4：训练 ML 模型
+#### **Step 5: 训练 ML 模型**
 ```bash
-gcloud dataproc jobs submit pyspark spark_ml_events.py \
+gcloud dataproc jobs submit pyspark \
+  gs://<bucket>/scripts/spark_ml_events.py \
   --cluster=<cluster-name> \
   --region=us-east1 \
   -- --input gs://<bucket>/ticketmaster_processed/events_parquet \
      --metrics-output gs://<bucket>/ticketmaster_ml/metrics \
      --model-output gs://<bucket>/ticketmaster_ml/models/rf_upcoming_artist
+```
+
+---
+
+### 💻 **方式 3: 本地开发测试**
+
+```bash
+# 本地模式（不需要 Dataproc）
+python quickstart_integration.py --mode local
+
+# 这会生成 enriched_events.csv 用于本地测试
 ```
 
 ---

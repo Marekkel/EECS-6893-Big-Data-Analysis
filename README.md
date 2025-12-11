@@ -1,188 +1,269 @@
-# EECS-6893-Big-Data-Analysis
-
-**Ticketmaster 音乐活动大数据分析项目**
-
-Final Project - 基于 Ticketmaster API 的音乐活动数据采集、ETL、分析和机器学习预测
+# EECS-6893 Big Data Analysis - 项目文档
 
 ---
 
 ## 项目简介
 
-本项目通过 Ticketmaster Discovery API 采集美国各主要城市的音乐活动数据，利用 Apache Spark 在 Google Cloud Dataproc 集群上进行大数据处理、分析和机器学习建模，挖掘音乐活动的地域分布、时间趋势、艺术家热度等洞察。
+本项目基于 **多源音乐活动数据集**（整合 Ticketmaster、SeatGeek、StubHub、Spotify 数据）构建了完整的大数据分析流程，涵盖 **ETL 处理、多维度统计分析和多模型机器学习票价预测**。通过 **Apache Spark 分布式计算框架** 和 **Google Cloud Dataproc**，实现了对大规模音乐活动数据的智能分析与价格预测建模。
+
+---
+
+## 核心功能
+
+1. **分布式 ETL 处理 (`spark_etl_master.py`)**
+   - 解析 master_df.csv 中的列表字段（艺术家、Spotify 数据）
+   - 类型转换与特征工程（价格范围、Spotify 数据标记、二级市场标记）
+   - 输出按年月分区的 Parquet 格式数据
+
+2. **多维度统计分析 (`spark_analysis_master.py`)**
+   - **6 大分析维度**：年度类型趋势、城市热度 Top 50、艺术家人气 Top 100、星期分布、二级市场溢价、各州价格对比
+   - 输出 CSV 分析报告
+
+3. **单模型训练 (`spark_ml_master.py`)**
+   - 支持 3 种算法选择：Random Forest / GBT / Linear Regression
+   - 特征工程：StringIndexer + OneHotEncoder + StandardScaler
+   - 预测目标：SeatGeek 平均票价（sg_avg_price）
+
+4. **多模型对比训练 (`spark_ml_multi_models.py`)**
+   - **6 大回归模型**：Linear Regression、Lasso、Elastic Net、Decision Tree、Random Forest、GBT
+   - 自动对比 RMSE/MAE/R² 性能指标
+   - 输出特征重要性、预测样本、模型对比报告
+
+5. **一键运行流程 (`run_master_pipeline.py`)**
+   - 支持本地模式和 Dataproc 模式
+   - 4 步完整流程：ETL → 分析 → 单模型训练 → 多模型对比
+   - 自动上传至 GCS（Dataproc 模式）
+
+---
 
 ## 项目结构
 
 ```
 EECS-6893-Big-Data-Analysis/
-├── fetch_data.py              # 数据采集脚本：从 Ticketmaster API 抓取音乐活动数据
-├── parse_data.py              # 本地数据解析脚本：将 JSON 转换为 Pandas DataFrame
-├── spark_etl_events.py        # Spark ETL 作业：清洗和转换原始数据为 Parquet
-├── spark_analysis_events.py   # Spark 分析作业：生成多维度统计分析
-├── spark_ml_events.py         # Spark ML 作业：预测艺术家未来热度
-├── README.md                  # 项目说明文档
-└── ticketmaster_raw/          # 原始数据存储目录
-    └── dt=2025-11-21/         # 按日期分区
-        ├── events_AllUS.jsonl
-        ├── events_Chicago.jsonl
-        ├── events_Houston.jsonl
-        ├── events_LosAngeles.jsonl
-        ├── events_NewYork.jsonl
-        └── events_Phoenix.jsonl
+├── spark_etl_master.py           # Spark ETL 处理脚本
+├── spark_analysis_master.py      # Spark 多维度分析脚本
+├── spark_ml_master.py            # 单模型训练脚本（支持 RF/GBT/LR）
+├── spark_ml_multi_models.py      # 多模型对比训练脚本（6 种算法）
+├── run_master_pipeline.py        # 流程编排脚本（本地/Dataproc）
+├── README.md                     # 项目文档
+├── QUICKSTART.md                 # 快速入门指南
+├── OUTPUT_GUIDE.md               # 输出文件详细说明
+├── DATAPROC_SETUP.md             # Dataproc 部署指南
+├── dataproc_config.json          # Dataproc 配置文件
+├── data/
+│   └── master_df.csv             # 主数据集（5102 条记录，2017 音乐活动）
+├── tools/
+│   └── view_parquet.py           # Parquet 文件查看工具
+└── [输出目录 - 本地/GCS]
+    ├── master_parquet/           # ETL 处理后的 Parquet 数据
+    ├── analytics/                # 6 个分析结果 CSV 文件
+    ├── ml_results/               # 单模型训练结果
+    └── ml_multi_models/          # 多模型训练结果
+        ├── models/               # 6 个训练好的模型
+        ├── predictions_sample/   # 各模型预测样本
+        ├── feature_importance/   # 树模型特征重要性
+        └── metrics_comparison/   # 模型性能对比报告
 ```
 
 ---
 
-## 功能模块
+## 功能模块详解
 
-### 1. 数据采集 (`fetch_data.py`)
+### 1. 数据源：master_df.csv
 
-**功能：** 从 Ticketmaster Discovery API 获取音乐活动数据
+**数据集概况：**
+- **记录数：** 5102 条音乐活动数据
+- **时间跨度：** 2017 年音乐活动
+- **数据来源：** 整合 Ticketmaster、SeatGeek、StubHub、Spotify 四大平台数据
 
-**特性：**
-- 支持多个 DMA（Designated Market Area）区域
-  - New York (345)
-  - Los Angeles (324)
-  - Chicago (249)
-  - Houston (300)
-  - Phoenix (359)
-  - AllUS (200) - 全美范围
-- 自动分页获取完整数据集
-- 按日期分区存储（`dt=YYYY-MM-DD`）
-- 速率限制保护，避免 API 限流
-- 输出格式：JSONL（每行一个 JSON 对象）
+**核心字段：**
+- **活动信息：** event_id, event_name, event_date, genre, subgenre, city, state, country
+- **一级市场价格：** tm_price_min, tm_price_max（Ticketmaster）
+- **二级市场价格：** sg_avg_price, sg_lowest_price, sh_list_price（SeatGeek/StubHub）
+- **Spotify 数据：** artists（列表）, spotify_followers（列表）, spotify_popularity（列表）
+- **地理信息：** latitude, longitude
 
-**使用方法：**
+**数据质量：**
+- 所有活动均包含一级市场票价数据
+- 二级市场数据覆盖率：约 60%
+- Spotify 艺术家数据覆盖率：约 75%
+
+---
+
+### 2. Spark ETL 处理 (`spark_etl_master.py`)
+
+**功能：** 解析 CSV 数据，进行类型转换与特征工程
+
+**主要处理：**
+1. **列表字段解析：** 从字符串列表提取第一个元素（artists, spotify_followers, spotify_popularity）
+2. **类型转换：** 价格字段转 DoubleType，日期字段转 DateType，坐标转 DoubleType
+3. **特征工程：**
+   - `price_range`：Ticketmaster 价格区间（max - min）
+   - `has_spotify_data`：是否有 Spotify 数据（布尔值）
+   - `has_secondary_market`：是否有二级市场数据（布尔值）
+4. **时间特征提取：** year, month, weekday
+
+**运行方式：**
 ```bash
-python fetch_data.py
+# 本地模式
+python run_master_pipeline.py --mode local
+
+# Dataproc 模式
+python run_master_pipeline.py --mode dataproc
 ```
 
-**配置：**
-- API Key：在代码中设置 `API_KEY`
-- 输出目录：`OUTPUT_DIR = "ticketmaster_raw/"`
+**输出：** `master_parquet/` - 按年月分区的 Parquet 数据
 
 ---
 
-### 2. 本地数据解析 (`parse_data.py`)
+### 3. Spark 数据分析 (`spark_analysis_master.py`)
 
-**功能：** 将原始 JSONL 文件解析为结构化的 Pandas DataFrame
-
-**提取字段：**
-- **基本信息：** ID, Name, Date
-- **艺术家信息：** Artist, Segment, Genre, SubGenre
-- **价格信息：** Price_Ranges_Type, Currency, Max, Min
-- **场馆信息：** Venue, City, State, Country, Timezone
-- **热度指标：** Upcoming_Events_Venue, Upcoming_Events_Artist
-- **推广信息：** Promoter
-
-**使用方法：**
-```python
-python parse_data.py
-```
-
----
-
-### 3. Spark ETL (`spark_etl_events.py`)
-
-**功能：** 分布式数据清洗和转换，生成标准化的 Parquet 数据集
-
-**处理流程：**
-1. 读取原始 JSONL 文件
-2. 扁平化嵌套 JSON 结构
-3. 提取关键字段（venue、artist、classification）
-4. 类型转换（日期、数值）
-5. 去重（按活动 ID）
-6. 过滤缺失关键字段的记录
-7. 输出为 Parquet 格式
-
-**使用方法（Google Cloud Dataproc）：**
-```bash
-gcloud dataproc jobs submit pyspark spark_etl_events.py \
-  --cluster=<your-cluster> \
-  --region=us-east1 \
-  -- --input gs://<bucket>/ticketmaster_raw/dt=*/events_*.jsonl \
-     --output gs://<bucket>/ticketmaster_processed/events_parquet
-```
-
-**必需参数：**
-- `--input`: 原始数据路径（支持通配符）
-- `--output`: 清洗后 Parquet 输出路径
-
----
-
-### 4. Spark 数据分析 (`spark_analysis_events.py`)
-
-**功能：** 多维度统计分析，生成业务洞察
+**功能：** 6 大维度统计分析，生成业务洞察报告
 
 **分析维度：**
-1. **年度 & 类型分析：** 各年份各音乐类型的活动数量
-2. **地域分析：** Top 50 活动最多的城市
-3. **艺术家热度：** Top 50 即将举办活动最多的艺术家
-4. **时间趋势：** 各星期几的活动分布
 
-**使用方法（Google Cloud Dataproc）：**
-```bash
-gcloud dataproc jobs submit pyspark spark_analysis_events.py \
-  --cluster=<your-cluster> \
-  --region=us-east1 \
-  -- --input gs://<bucket>/ticketmaster_processed/events_parquet \
-     --output gs://<bucket>/ticketmaster_analytics
-```
+1. **events_per_year_genre** - 年度类型趋势分析
+   - 各音乐类型的年度活动数量统计
 
-**输出文件：**
-- `events_per_year_genre/`: 年度类型统计
-- `top_cities/`: Top 城市排名
-- `top_artists/`: Top 艺术家排名
-- `events_per_weekday/`: 星期分布
+2. **top_cities** - 城市热度 Top 50 排名
+   - 按活动数量排序的城市排名
+
+3. **top_artists** - 艺术家人气 Top 100 排名
+   - 基于 Spotify 粉丝数和人气值的综合排名
+
+4. **events_per_weekday** - 星期分布分析
+   - 各星期几的活动数量统计
+
+5. **secondary_market_by_genre** - 二级市场溢价分析
+   - 各音乐类型的平均一级/二级市场价格对比
+   - 溢价率计算（secondary_premium）
+
+6. **price_by_state** - 各州价格对比
+   - 各州的平均票价统计
+
+**输出：** `analytics/` - 6 个 CSV 文件
 
 ---
 
-### 5. Spark 机器学习 (`spark_ml_events.py`)
+### 4. 单模型训练 (`spark_ml_master.py`)
 
-**功能：** 基于随机森林回归模型预测艺术家未来热度
+**功能：** 训练单个机器学习模型预测 SeatGeek 平均票价
 
-**目标变量：**
-- `Upcoming_Events_Artist`：艺术家即将举办的活动数量（热度代理指标）
+**预测目标：**
+- `sg_avg_price`：SeatGeek 二级市场平均票价
 
 **特征工程：**
-- **类别特征：** Segment, Genre, SubGenre, Venue_City, Venue_State, Venue_Country
-- **数值特征：** Upcoming_Events_Venue, year, month, weekday
-- **编码方式：** StringIndexer + OneHotEncoder
+- **类别特征：** genre, subgenre, city, state, country
+- **数值特征：** tm_price_min, tm_price_max, price_range, year, month, weekday, has_spotify_data, has_secondary_market
+- **编码方式：** StringIndexer + OneHotEncoder + StandardScaler
 
-**模型配置：**
-- 算法：RandomForestRegressor
-- 树数量：80
-- 最大深度：10
-- 训练/测试划分：80% / 20%
+**支持算法：**
+- `--model-type rf`：Random Forest（默认）
+- `--model-type gbt`：Gradient Boosted Trees
+- `--model-type lr`：Linear Regression
 
-**评估指标：**
-- RMSE（均方根误差）
-- MAE（平均绝对误差）
-- R²（决定系数）
-
-**使用方法（Google Cloud Dataproc）：**
+**运行示例：**
 ```bash
-gcloud dataproc jobs submit pyspark spark_ml_events.py \
-  --cluster=<your-cluster> \
-  --region=us-east1 \
-  -- --input gs://<bucket>/ticketmaster_processed/events_parquet \
-     --metrics-output gs://<bucket>/ticketmaster_ml/metrics \
-     --model-output gs://<bucket>/ticketmaster_ml/models/rf_upcoming_artist
+# 训练随机森林模型
+python run_master_pipeline.py --mode local --model-type rf
 ```
 
 **输出：**
-- 训练好的模型（PipelineModel）
-- 评估指标 JSON 文件
+- `ml_results/predictions/`：测试集预测结果
+- `ml_results/metrics/`：评估指标（RMSE/MAE/R²）
+- `ml_results/models/`：训练好的模型
+- `ml_results/feature_importance/`：特征重要性（树模型）
+
+---
+
+### 5. 多模型对比训练 (`spark_ml_multi_models.py`)
+
+**功能：** 同时训练 6 种回归模型，自动对比性能
+
+**6 大回归模型：**
+1. **Linear Regression** - 线性回归（基准模型）
+2. **Lasso (α=0.1)** - L1 正则化线性回归
+3. **Elastic Net (α=0.1, λ=0.5)** - L1+L2 正则化
+4. **Decision Tree (depth=10)** - 决策树回归
+5. **Random Forest (100 trees, depth=10)** - 随机森林
+6. **Gradient Boosted Trees (100 trees, depth=5)** - 梯度提升树
+
+**评估指标：**
+- RMSE（均方根误差）- 越小越好
+- MAE（平均绝对误差）- 越小越好
+- R²（决定系数）- 越大越好（最大值 1.0）
+
+**输出结构：**
+```
+ml_multi_models/
+├── models/                      # 6 个训练好的模型
+│   ├── LinearRegression/
+│   ├── Lasso/
+│   ├── ElasticNet/
+│   ├── DecisionTree/
+│   ├── RandomForest/
+│   └── GBT/
+├── predictions_sample/          # 各模型预测样本（前 100 条）
+│   ├── LinearRegression_predictions.csv
+│   └── ...
+├── feature_importance/          # 树模型特征重要性
+│   ├── DecisionTree_importance.csv
+│   ├── RandomForest_importance.csv
+│   └── GBT_importance.csv
+└── metrics_comparison/          # 模型性能对比报告
+    └── metrics_comparison.csv
+```
+
+**关键指标对比文件：** `metrics_comparison.csv`
+```
+Model               RMSE    MAE     R²      TrainSize  TestSize
+LinearRegression    105.67  78.23   0.721   2436       610
+RandomForest        92.45   65.89   0.798   2436       610
+...
+```
+
+---
+
+### 6. 流程编排 (`run_master_pipeline.py`)
+
+**功能：** 一键运行完整分析流程
+
+**支持模式：**
+- `--mode local`：本地 Spark 模式
+- `--mode dataproc`：Google Cloud Dataproc 模式
+
+**4 步完整流程：**
+1. **Step 1 - ETL：** 解析 master_df.csv → master_parquet/
+2. **Step 2 - Analytics：** 统计分析 → analytics/（6 个 CSV）
+3. **Step 3 - Single ML：** 单模型训练 → ml_results/
+4. **Step 4 - Multi ML：** 多模型对比 → ml_multi_models/
+
+**Dataproc 模式特性：**
+- 自动上传脚本和数据到 GCS
+- 自动提交 4 个 Dataproc 作业
+- 实时显示作业状态
+
+**运行示例：**
+```bash
+# 本地完整流程
+python run_master_pipeline.py --mode local
+
+# Dataproc 完整流程（需先配置 dataproc_config.json）
+python run_master_pipeline.py --mode dataproc
+
+# 仅运行单模型训练（随机森林）
+python run_master_pipeline.py --mode local --model-type rf
+```
 
 ---
 
 ## 技术栈
 
-- **数据采集：** Python, Requests, Ticketmaster Discovery API
-- **数据处理：** Apache Spark (PySpark)
-- **机器学习：** Spark MLlib (RandomForest, Pipeline)
+- **数据处理：** Apache Spark (PySpark 3.x)
+- **机器学习：** Spark MLlib (6 种回归算法)
 - **云平台：** Google Cloud Platform (Dataproc, Cloud Storage)
-- **数据格式：** JSONL, Parquet, CSV
-- **本地分析：** Pandas, NumPy
+- **数据格式：** CSV, Parquet
+- **编程语言：** Python 3.7+
 
 ---
 
@@ -190,162 +271,172 @@ gcloud dataproc jobs submit pyspark spark_ml_events.py \
 
 ### 本地环境
 ```bash
-pip install requests pandas numpy
+# 安装 PySpark
+pip install pyspark
+
+# 可选：安装本地 Spark（用于大规模数据处理）
+# 下载地址：https://spark.apache.org/downloads.html
 ```
 
-### Spark 环境（Dataproc）
+### Google Cloud Dataproc
 - Python 3.7+
 - PySpark 3.x
 - Spark MLlib
+- 配置 `dataproc_config.json`
 
----
-
-## 数据流程
-
-```
-1. 数据采集
-   Ticketmaster API → fetch_data.py → ticketmaster_raw/*.jsonl
-
-2. ETL 处理
-   JSONL → spark_etl_events.py → Parquet (清洗后数据)
-
-3. 分析 & ML
-   ├── spark_analysis_events.py → 统计分析结果 (CSV)
-   └── spark_ml_events.py → 预测模型 + 评估指标
-```
+详细配置指南：**[DATAPROC_SETUP.md](DATAPROC_SETUP.md)**
 
 ---
 
 ## 快速开始
 
-### 🎯 **方式 1: 使用外部数据集（推荐）**
+### 方法 1：本地运行（推荐用于开发测试）
 
-如果你有外部 CSV 数据集（包含 SeatGeek, StubHub, Spotify 数据）：
+```bash
+# 完整流程（ETL → 分析 → 单模型 → 多模型）
+python run_master_pipeline.py --mode local
 
-#### **Step 1: 配置 Dataproc**
+# 仅运行 ETL
+python spark_etl_master.py \
+  --input data/master_df.csv \
+  --output master_parquet
+
+# 仅运行分析
+python spark_analysis_master.py \
+  --input master_parquet \
+  --output analytics
+
+# 仅运行单模型训练（随机森林）
+python spark_ml_master.py \
+  --input master_parquet \
+  --output ml_results \
+  --model-type rf
+
+# 仅运行多模型对比
+python spark_ml_multi_models.py \
+  --input master_parquet \
+  --output ml_multi_models
+```
+
+---
+
+### 方法 2：Google Cloud Dataproc（推荐用于生产环境）
+
+#### Step 1: 配置 Dataproc
+
 ```bash
 # 1. 编辑配置文件
-cp dataproc_config.json.example dataproc_config.json
-# 填入你的 GCP 项目信息
+# 填入你的 GCP 项目信息、集群名称、GCS bucket 等
+vim dataproc_config.json
 
-# 2. 创建 Dataproc 集群
-gcloud dataproc clusters create ticketmaster-cluster \
+# 2. 创建 Dataproc 集群（如果还没有）
+gcloud dataproc clusters create your-cluster-name \
   --region=us-east1 \
   --num-workers=2 \
   --master-machine-type=n1-standard-4 \
   --worker-machine-type=n1-standard-4
 ```
 
-详细设置指南：**[DATAPROC_SETUP.md](DATAPROC_SETUP.md)**
+详细配置指南：**[DATAPROC_SETUP.md](DATAPROC_SETUP.md)**
 
-#### **Step 2: 一键运行完整流程**
+#### Step 2: 一键运行完整流程
+
 ```bash
-# Dataproc 模式（自动整合、上传、提交作业）
-python quickstart_integration.py --mode dataproc
+# Dataproc 模式（自动上传数据、提交 4 个作业）
+python run_master_pipeline.py --mode dataproc
 ```
 
-**这会自动：**
-1. ✅ 整合外部数据（本地）
-2. ✅ 上传到 GCS
-3. ✅ 提交 ETL 作业（Dataproc）
-4. ✅ 提交分析作业（Dataproc）
-5. ✅ 提交 ML 票价预测（Dataproc）
-
-完整指南：**[EXTERNAL_DATA_WORKFLOW.md](EXTERNAL_DATA_WORKFLOW.md)**
+**这会自动执行：**
+1. ✅ 上传 master_df.csv 到 GCS
+2. ✅ 上传 4 个 Spark 脚本到 GCS
+3. ✅ 提交 ETL 作业
+4. ✅ 提交分析作业
+5. ✅ 提交单模型训练作业
+6. ✅ 提交多模型对比作业
 
 ---
 
-### 🔧 **方式 2: 仅使用 Ticketmaster 数据**
+## 输出文件说明
 
-#### **Step 1: 采集数据**
-```bash
-# 配置 API Key 后运行
-python fetch_data.py
-```
+详细的输出文件说明，请参考：**[OUTPUT_GUIDE.md](OUTPUT_GUIDE.md)**
 
-#### **Step 2: 上传数据到 GCS**
-```bash
-# 上传原始数据到 GCS
-gsutil -m cp -r ticketmaster_raw/ gs://<your-bucket>/
+### 核心输出目录：
 
-# 上传 Spark 脚本
-gsutil cp spark_*.py gs://<your-bucket>/scripts/
-```
+1. **master_parquet/** - ETL 处理后的 Parquet 数据
+   - 按 year/month 分区存储
+   - 高效列式存储格式
 
-#### **Step 3: 提交 Spark ETL 作业**
-```bash
-gcloud dataproc jobs submit pyspark \
-  gs://<bucket>/scripts/spark_etl_events.py \
-  --cluster=<cluster-name> \
-  --region=us-east1 \
-  -- --input gs://<bucket>/ticketmaster_raw/dt=*/events_*.jsonl \
-     --output gs://<bucket>/ticketmaster_processed/events_parquet
-```
+2. **analytics/** - 6 个统计分析 CSV 文件
+   - `events_per_year_genre.csv`：年度类型趋势
+   - `top_cities.csv`：城市热度 Top 50
+   - `top_artists.csv`：艺术家人气 Top 100
+   - `events_per_weekday.csv`：星期分布
+   - `secondary_market_by_genre.csv`：二级市场溢价分析
+   - `price_by_state.csv`：各州价格对比
 
-#### **Step 4: 运行分析作业**
-```bash
-gcloud dataproc jobs submit pyspark \
-  gs://<bucket>/scripts/spark_analysis_events.py \
-  --cluster=<cluster-name> \
-  --region=us-east1 \
-  -- --input gs://<bucket>/ticketmaster_processed/events_parquet \
-     --output gs://<bucket>/ticketmaster_analytics
-```
+3. **ml_results/** - 单模型训练结果
+   - `predictions/`：测试集预测结果
+   - `metrics/`：评估指标（RMSE/MAE/R²）
+   - `models/`：训练好的模型
+   - `feature_importance/`：特征重要性
 
-#### **Step 5: 训练 ML 模型**
-```bash
-gcloud dataproc jobs submit pyspark \
-  gs://<bucket>/scripts/spark_ml_events.py \
-  --cluster=<cluster-name> \
-  --region=us-east1 \
-  -- --input gs://<bucket>/ticketmaster_processed/events_parquet \
-     --metrics-output gs://<bucket>/ticketmaster_ml/metrics \
-     --model-output gs://<bucket>/ticketmaster_ml/models/rf_upcoming_artist
-```
-
----
-
-### 💻 **方式 3: 本地开发测试**
-
-```bash
-# 本地模式（不需要 Dataproc）
-python quickstart_integration.py --mode local
-
-# 这会生成 enriched_events.csv 用于本地测试
-```
-
----
-
-## 数据字段说明
-
-| 字段名 | 类型 | 说明 |
-|--------|------|------|
-| ID | string | 活动唯一标识符 |
-| Name | string | 活动名称 |
-| Date | string | 活动日期 (YYYY-MM-DD) |
-| Artist | string | 艺术家名称 |
-| Segment | string | 活动大类（如 Music） |
-| Genre | string | 音乐类型（如 Rock, Pop） |
-| SubGenre | string | 音乐子类型 |
-| Promoter | string | 推广商名称 |
-| Venue | string | 场馆名称 |
-| Venue_City | string | 场馆所在城市 |
-| Venue_State | string | 场馆所在州（州代码） |
-| Venue_Country | string | 场馆所在国家 |
-| Venue_Timezone | string | 场馆时区 |
-| Upcoming_Events_Venue | int | 该场馆即将举办的活动数 |
-| Upcoming_Events_Artist | int | 该艺术家即将举办的活动数 |
+4. **ml_multi_models/** - 多模型对比结果
+   - `models/`：6 个训练好的模型
+   - `predictions_sample/`：各模型预测样本
+   - `feature_importance/`：树模型特征重要性
+   - `metrics_comparison/`：**模型性能对比报告**（核心文件）
 
 ---
 
 ## 项目亮点
 
-✅ **完整的大数据处理流程**：从数据采集到分析建模  
-✅ **分布式计算**：利用 Spark 处理大规模数据  
-✅ **云原生架构**：基于 GCP Dataproc 和 Cloud Storage  
-✅ **多维度分析**：地域、时间、类型、艺术家热度  
-✅ **机器学习应用**：预测艺术家未来热度趋势  
-✅ **可扩展设计**：支持新增 DMA 区域和特征维度
+✅ **多源数据整合**：融合 Ticketmaster、SeatGeek、StubHub、Spotify 四大平台数据  
+✅ **完整大数据处理流程**：从 ETL 到分析建模全流程覆盖  
+✅ **多模型对比训练**：6 种回归算法自动对比，找出最优模型  
+✅ **分布式计算**：利用 Apache Spark 处理大规模数据  
+✅ **云原生架构**：支持 Google Cloud Dataproc 部署  
+✅ **多维度分析**：地域、时间、类型、艺术家人气、二级市场溢价  
+✅ **票价预测建模**：基于多特征预测 SeatGeek 二级市场价格  
+✅ **一键运行流程**：支持本地和 Dataproc 两种模式
+
+---
+
+## 使用场景
+
+1. **音乐活动市场分析**：了解不同城市、音乐类型的市场热度
+2. **艺术家人气排名**：基于 Spotify 数据分析艺术家人气
+3. **票价预测建模**：预测二级市场票价，辅助定价决策
+4. **二级市场溢价分析**：分析不同音乐类型的溢价情况
+5. **时间趋势分析**：了解活动在不同时间段的分布规律
+
+---
+
+## 文档索引
+
+- **[README.md](README.md)** - 项目主文档（当前文件）
+- **[QUICKSTART.md](QUICKSTART.md)** - 快速入门指南
+- **[OUTPUT_GUIDE.md](OUTPUT_GUIDE.md)** - 输出文件详细说明
+- **[DATAPROC_SETUP.md](DATAPROC_SETUP.md)** - Dataproc 部署指南
+
+---
+
+## 常见问题
+
+### Q1: 如何选择运行模式？
+- **本地模式：** 适合开发测试、数据量较小的场景
+- **Dataproc 模式：** 适合生产环境、数据量较大的场景
+
+### Q2: 如何查看模型性能对比？
+查看 `ml_multi_models/metrics_comparison/metrics_comparison.csv` 文件，对比 6 个模型的 RMSE/MAE/R² 指标。
+
+### Q3: 如何查看特征重要性？
+树模型（Decision Tree、Random Forest、GBT）的特征重要性保存在 `ml_multi_models/feature_importance/` 目录。
+
+### Q4: 如何修改模型参数？
+编辑 `spark_ml_master.py` 或 `spark_ml_multi_models.py`，修改模型超参数（如树的数量、深度等）。
+
+### Q5: 如何处理更大的数据集？
+将数据上传到 GCS，使用 Dataproc 模式运行，并根据数据规模调整集群配置。
 
 ---
 

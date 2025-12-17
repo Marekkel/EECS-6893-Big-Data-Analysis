@@ -1,0 +1,303 @@
+city,avg_price
+Springfield,35.245
+Bow,75.0
+Hinckley,45.0
+Napa,60.714285714285715
+Oakland,41.13787878787879
+Mescalero,25.0
+Philadelphia,27.68532258064516
+Los Angeles,31.96404761904762
+Grand Rapids,33.077586206896555
+Cleveland,24.933333333333334
+San Diego,29.90357142857143
+Westbury,41.54545454545455
+Medford,34.8
+Holmdel,29.0
+Mankato,43.0
+Portland,22.09328358208955
+Columbus,25.509784946236557
+Evansville,22.5
+Tifton,40.0
+Ann Arbor,29.75
+El Paso,44.5
+Fargo,23.0
+Poughkeepsie,275.0
+Northfield,36.03846153846154
+Corpus Christi,39.5
+Shreveport,36.5
+Lincoln,45.83142857142858
+North Charleston,36.041666666666664
+Reno,46.72142857142857
+Lafayette,30.5925
+Uniondale,42.8125
+Atlanta,26.544496124031006
+Uncasville,47.375
+Brooklyn,40.53142857142857
+Tuscaloosa,27.375
+Chappaqua,28.5
+Northridge,43.0
+Norfolk,38.27272727272727
+Reading,30.65625
+Mount Pocono,25.0
+Dubuque,37.5
+Elizabeth,48.5
+Burnsville,27.0
+Tucson,34.833333333333336
+Ft Lauderdale,27.584629629629628
+Port Huron,30.666666666666668
+Pikeville,26.99
+Mobile,46.5
+Tacoma,46.4875
+Ocean City,45.625
+New Albany,39.833333333333336
+Niagara Falls,40.0
+Buffalo,16.736842105263158
+North Myrtle Beach,32.05555555555556
+Wallingford,39.666666666666664
+Cincinnati,22.438000000000002
+Park City,29.333333333333332
+Miramar,55.0
+Beverly Hills,48.083333333333336
+New York,37.85545918367347
+Davenport,26.0
+Cedar Park,34.81666666666667
+Harrisburg,29.0
+Anaheim,35.67272727272727
+Alexandria,49.326388888888886
+Camden,27.25
+Detroit,34.042477064220186
+Baton Rouge,36.7
+Montclair,25.541666666666668
+St. Louis,31.596666666666668
+Brookings,23.583333333333332
+St Augustine,45.38666666666666
+Spartanburg,42.6875
+New Castle,50.0
+Stateline,33.48
+Chicago,35.11666666666667
+Scranton,20.0
+Miami Beach,53.25
+Fort Lauderdale,20.0
+Bossier City,38.75
+Wheeling,10.0
+New Orleans,27.77916666666667
+Fresno,35.44833333333333
+Las Vegas,60.603805774278015
+Worthington,10.0
+Charlottesville,45.45
+Seattle,47.38
+Moline,21.83
+Lake Charles,18.333333333333332
+Hammond,57.5
+King of Prussia,27.0
+Salisbury,19.454545454545453
+Saint Louis,26.69047619047619
+Saint Paul,35.59285714285714
+Canton,46.0
+Somerville,34.0
+Jacksonville,43.041666666666664
+Southaven,30.0
+Tulsa,43.68888888888889
+Fairfax,47.3
+Ponte Vedra Beach,37.359375
+Hagerstown,36.5
+Laughlin,55.0
+Orlando,38.45881355932203
+Lawrenceburg,21.666666666666668
+La Crosse,39.0
+Concord,25.0
+Eugene,39.875
+Denver,43.06818181818182
+Charleston,49.0
+Phoenix,40.065625
+Savannah,65.0
+Cabazon,65.0
+Chattanooga,39.166666666666664
+San Antonio,32.73529411764706
+Covington,35.5
+Hidalgo,48.625
+Oklahoma City,37.3125
+Albany,36.61538461538461
+Ames,19.5
+Viera,27.0
+McAllen,52.0
+Prior Lake,32.528571428571425
+Verona,25.0
+Santa Clara,45.5
+Englewood,37.81818181818182
+Independence,39.495000000000005
+Bemidji,38.5
+Youngstown,30.25
+North Little Rock,42.292500000000004
+Madison,32.78125
+Grand Forks,45.3
+Tunica Resorts,21.616666666666664
+Milwaukee,42.666666666666664
+New Brunswick,51.2
+Silver Spring,29.387179487179484
+Tampa,29.307916666666667
+Merrillville,40.0
+Newark,49.090625
+Estero,34.0
+Akron,25.227272727272727
+Asheville,34.30555555555556
+Charenton,20.0
+Punta Gorda,30.495
+Macon,39.833333333333336
+Kinder,25.5
+Ontario,40.4875
+Greenville,43.0
+Upper Darby,42.663333333333334
+Hershey,32.660000000000004
+New Haven,36.5
+St Louis,36.782500000000006
+Welch,39.25
+San Jose,43.603125
+National Harbor,99.32000000000001
+St Petersburg,33.09866666666667
+Peoria,29.1
+Bangor,31.5
+Terre Haute,28.75
+Virginia Beach,78.33333333333333
+Knoxville,29.2
+Charles Town,70.0
+Albuquerque,45.875
+Syracuse,28.35
+Salt Lake City,35.712857142857146
+Rosemont,34.20117647058823
+Richmond,67.5
+Columbia,48.75
+West Lafayette,22.166666666666668
+Wilkes-Barre,20.7
+Fort Wayne,31.375
+Saginaw,30.1875
+Sioux Falls,30.90833333333333
+Bethlehem,59.75
+New Buffalo,58.714285714285715
+Primm,21.25
+Queens,43.3
+Omaha,22.6125
+Greensboro,42.714285714285715
+Dallas,34.90911764705883
+Red Bank,31.53125
+Manchester,29.75
+Cherokee,32.666666666666664
+Raleigh,35.580952380952375
+Chandler,33.0
+Sacramento,37.97
+Allen,32.975
+Atlantic City,48.52777777777778
+Morton,30.0
+San Francisco,47.74285714285714
+Montgomery,42.833333333333336
+Nichols,10.0
+Florence,46.0
+Tallahassee,45.0
+Lynn,30.5
+St. Charles,10.0
+Memphis,39.666666666666664
+Kingston,52.0
+Austin,30.0
+Ottumwa,29.75
+Pittsburgh,31.625
+Marksville,80.0
+Orange Beach,20.666666666666668
+Biloxi,44.8
+Toledo,45.298
+Irving,36.54090909090909
+Kalamazoo,26.833333333333332
+Salem,32.75
+Effingham,32.333333333333336
+Lexington,42.295
+Staten Island,49.35
+Huntsville,43.92857142857143
+Easton,14.5
+Berkeley,48.75
+Durham,37.56999999999999
+Melbourne,12.0
+Stockton,37.0
+St. Petersburg,32.4
+Minneapolis,48.833333333333336
+Boca Raton,328.5
+Brandon,33.75
+Baltimore,38.98625
+Burgettstown,27.25
+Pensacola,26.75
+Asbury Park,17.90277777777778
+Lemoyne,10.0
+University Park,46.375
+Clive,37.666666666666664
+Lawrence,30.0
+Charlotte,27.57360655737705
+Grand Island,35.0
+Hollywood,35.81666666666667
+Jim Thorpe,25.25
+Morgantown,40.75
+Louisville,31.438043478260873
+Hampton,31.136363636363637
+Indianapolis,29.77770491803279
+Nashville,40.14772727272727
+Rockford,23.875
+Hampton Beach,59.0
+Boise,39.5
+Birmingham,31.25
+Sunrise,37.90555555555555
+Washington,45.2469696969697
+Bristow,28.0
+Tupelo,36.5
+Pasadena,38.513333333333335
+Collingswood,29.25
+Warren,27.5
+Inglewood,48.854285714285716
+Cohoes,32.9
+Lancaster,23.0
+Aventura,42.09777777777778
+Wilmington,20.05
+Bloomington,34.416666666666664
+Woodstock,15.0
+Highland Heights,35.0
+Deadwood,38.5
+Patchogue,9.43
+Honolulu,43.25
+Rochester,39.791666666666664
+Mashantucket,51.81818181818182
+Ypsilanti,35.0
+Lakeland,25.0
+Sugar Land,51.74090909090909
+Kansas City,32.172413793103445
+Muncie,18.88888888888889
+Riverside,38.0
+Duluth,36.25
+Houston,33.846774193548384
+Rising Sun,38.333333333333336
+Des Moines,36.285714285714285
+Kissimmee,30.0
+Providence,26.0
+Miami,44.37857142857143
+Durant,43.0
+Johnstown,23.75
+pORTLAND,20.0
+Dodge City,39.5
+Coconut Creek,95.0
+Saratoga Springs,12.875
+Huntington,28.083333333333332
+Las Cruces,43.0
+Boston,27.864227642276422
+Auburn,25.0
+Chula Vista,28.0
+Clarkston,24.0
+Mountain View,27.25
+Ojai,48.0
+Foxborough,51.125
+Wantagh,27.25
+Arlington,49.5
+Simpsonville,29.5
+Cuyahoga Falls,33.25
+West Palm Beach,39.0
+Landover,44.5
+East Rutherford,53.0
+Maryland Heights,33.25
+Huber Heights,20.0
+Mansfield,29.5
+Noblesville,29.5
+Ridgefield,29.5

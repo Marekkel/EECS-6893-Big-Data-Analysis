@@ -4,16 +4,16 @@
 """
 Spark analytics for master_df.csv events data.
 
-对清洗后的数据进行多维度分析：
-  1. 年份 × 音乐类型分析
-  2. 热门城市排名
-  3. 热门艺术家排名（基于 Spotify 数据）
-  4. 星期几分布
-  5. 二级市场分析
-  6. 价格分析
+Perform multi-dimensional analysis on cleaned data:
+  1. Year x Genre analysis
+  2. Top cities ranking
+  3. Top artists ranking (based on Spotify data)
+  4. Day-of-week distribution
+  5. Secondary market analysis
+  6. Price analysis
 
 Usage:
-本地运行:
+Local:
     spark-submit spark_analysis_master.py \
       --input output/master_parquet \
       --output output/analytics
@@ -56,22 +56,19 @@ def parse_args():
     )
     return parser.parse_args()
 
-
 def main():
     args = parse_args()
     spark = build_spark()
 
-    print(f"[INFO] Reading processed data from: {args.input}")
+    print(f"Reading processed data from: {args.input}")
     df = spark.read.parquet(args.input)
 
-    print("[INFO] Schema:")
+    print("Schema:")
     df.printSchema()
-    print(f"[INFO] Total records: {df.count()}")
+    print(f"Total records: {df.count()}")
 
-    # ============================================================
-    # 1. 年份 × 音乐类型分析
-    # ============================================================
-    print("\n[1/6] Analyzing events per year & genre...")
+    # 1. Year × Genre analysis
+    print("\n [1/6] Analyzing events per year & genre...")
     events_per_year_genre = (
         df.groupBy("year", "genre")
           .agg(
@@ -83,13 +80,11 @@ def main():
     )
 
     output_1 = f"{args.output}/events_per_year_genre"
-    print(f"[INFO] Writing to: {output_1}")
+    print(f"Writing to: {output_1}")
     events_per_year_genre.coalesce(1).write.mode("overwrite").option("header", "true").csv(output_1)
 
-    # ============================================================
-    # 2. 热门城市排名
-    # ============================================================
-    print("\n[2/6] Analyzing top cities...")
+    # 2. Top cities ranking
+    print("\n [2/6] Analyzing top cities...")
     top_cities = (
         df.groupBy("city", "state")
           .agg(
@@ -103,13 +98,11 @@ def main():
     )
 
     output_2 = f"{args.output}/top_cities"
-    print(f"[INFO] Writing to: {output_2}")
+    print(f"Writing to: {output_2}")
     top_cities.coalesce(1).write.mode("overwrite").option("header", "true").csv(output_2)
 
-    # ============================================================
-    # 3. 热门艺术家排名（基于 Spotify 数据）
-    # ============================================================
-    print("\n[3/6] Analyzing top artists...")
+    # 3. Top artists ranking (based on Spotify data)
+    print("\n [3/6] Analyzing top artists...")
     top_artists = (
         df.filter(F.col("spotify_popularity").isNotNull())
           .groupBy("artist")
@@ -125,15 +118,13 @@ def main():
     )
 
     output_3 = f"{args.output}/top_artists"
-    print(f"[INFO] Writing to: {output_3}")
+    print(f"Writing to: {output_3}")
     top_artists.coalesce(1).write.mode("overwrite").option("header", "true").csv(output_3)
-
-    # ============================================================
-    # 4. 星期几分布
-    # ============================================================
-    print("\n[4/6] Analyzing events per weekday...")
     
-    # 定义星期几映射
+    # 4. Day-of-week distribution
+    print("\n [4/6] Analyzing events per weekday...")
+    
+    # Define weekday mapping
     weekday_map = F.when(F.col("weekday") == 1, "Sunday") \
                    .when(F.col("weekday") == 2, "Monday") \
                    .when(F.col("weekday") == 3, "Tuesday") \
@@ -153,13 +144,11 @@ def main():
     )
 
     output_4 = f"{args.output}/events_per_weekday"
-    print(f"[INFO] Writing to: {output_4}")
+    print(f"Writing to: {output_4}")
     events_per_weekday.coalesce(1).write.mode("overwrite").option("header", "true").csv(output_4)
 
-    # ============================================================
-    # 5. 二级市场分析
-    # ============================================================
-    print("\n[5/6] Analyzing secondary market...")
+    # 5. Secondary market analysis
+    print("\n [5/6] Analyzing secondary market...")
     
     secondary_market_analysis = (
         df.filter(F.col("has_secondary_market"))
@@ -169,7 +158,7 @@ def main():
               F.avg("sg_avg_price").alias("avg_seatgeek_price"),
               F.avg("sh_max_price").alias("avg_stubhub_max"),
               F.avg("tm_min_price").alias("avg_tm_price"),
-              # 计算溢价率
+              # Calculate premium rate
               F.avg(
                   (F.col("sg_avg_price") - F.col("tm_min_price")) / F.col("tm_min_price") * 100
               ).alias("avg_premium_pct")
@@ -178,13 +167,11 @@ def main():
     )
 
     output_5 = f"{args.output}/secondary_market_by_genre"
-    print(f"[INFO] Writing to: {output_5}")
+    print(f"Writing to: {output_5}")
     secondary_market_analysis.coalesce(1).write.mode("overwrite").option("header", "true").csv(output_5)
 
-    # ============================================================
-    # 6. 价格分析
-    # ============================================================
-    print("\n[6/6] Analyzing price distribution...")
+    # 6. Price analysis
+    print("\n [6/6] Analyzing price distribution...")
     
     price_analysis = (
         df.filter(F.col("tm_min_price").isNotNull())
@@ -201,17 +188,13 @@ def main():
     )
 
     output_6 = f"{args.output}/price_by_state"
-    print(f"[INFO] Writing to: {output_6}")
+    print(f"Writing to: {output_6}")
     price_analysis.coalesce(1).write.mode("overwrite").option("header", "true").csv(output_6)
 
-    # ============================================================
-    # 汇总报告
-    # ============================================================
-    print("\n" + "="*80)
-    print("ANALYTICS SUMMARY")
-    print("="*80)
+    # Summary report
+    print("\n ANALYTICS SUMMARY")
     
-    print("\n总体统计:")
+    print("\n Overall statistics:")
     df.select(
         F.count("*").alias("total_events"),
         F.countDistinct("artist").alias("unique_artists"),
@@ -221,19 +204,19 @@ def main():
         F.max("event_date").alias("latest_event")
     ).show(truncate=False)
     
-    print("\n音乐类型分布 (Top 10):")
+    print("\n Genre distribution (Top 10):")
     df.groupBy("genre").count().orderBy(F.desc("count")).limit(10).show(truncate=False)
     
-    print("\nSpotify 数据覆盖率:")
+    print("\n Spotify data coverage:")
     total = df.count()
     with_spotify = df.filter(F.col("has_spotify_data")).count()
-    print(f"  有 Spotify 数据: {with_spotify} / {total} ({with_spotify/total*100:.1f}%)")
+    print(f"  Events with Spotify data: {with_spotify} / {total} ({with_spotify/total*100:.1f}%)")
     
-    print("\n二级市场覆盖率:")
+    print("\n Secondary market coverage:")
     with_secondary = df.filter(F.col("has_secondary_market")).count()
-    print(f"  有二级市场数据: {with_secondary} / {total} ({with_secondary/total*100:.1f}%)")
+    print(f"  Events with secondary market data: {with_secondary} / {total} ({with_secondary/total*100:.1f}%)")
 
-    print("\n[INFO] Analytics complete. All results saved to:", args.output)
+    print("\n Analytics complete. All results saved to:", args.output)
     spark.stop()
 
 

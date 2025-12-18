@@ -4,7 +4,7 @@
 
 ## 项目简介
 
-本项目基于 **多源音乐活动数据集**（整合 Ticketmaster、SeatGeek、StubHub、Spotify 数据）构建了完整的大数据分析流程，涵盖 **ETL 处理、多维度统计分析和多模型机器学习票价预测**。通过 **Apache Spark 分布式计算框架** 和 **Google Cloud Dataproc**，实现了对大规模音乐活动数据的智能分析与价格预测建模。
+本项目基于 **多源音乐活动数据集**（整合 Ticketmaster、SeatGeek、StubHub、Spotify 数据）构建了完整的大数据分析流程，涵盖 **ETL 处理、多维度统计分析和多模型机器学习票价预测**。通过 **Apache Spark 分布式计算框架** 和 **Google Cloud Dataproc**，实现了对大规模音乐活动数据的智能分析与**一级市场票价预测建模**（基于艺人热度、地点、时间等特征预浌 Ticketmaster 最高价和最低价）。
 
 ---
 
@@ -22,11 +22,13 @@
 3. **单模型训练 (`spark_ml_master.py`)**
    - 支持 3 种算法选择：Random Forest / GBT / Linear Regression
    - 特征工程：StringIndexer + OneHotEncoder + StandardScaler
-   - 预测目标：SeatGeek 平均票价（sg_avg_price）
+   - 预测目标：Ticketmaster 最高票价（tm_price_max）或最低票价（tm_price_min）
+   - 支持选择预测目标：--target max 或 --target min
 
 4. **多模型对比训练 (`spark_ml_multi_models.py`)**
    - **6 大回归模型**：Linear Regression、Lasso、Elastic Net、Decision Tree、Random Forest、GBT
    - 自动对比 RMSE/MAE/R² 性能指标
+   - 支持同时预测最高价和最低价（分别运行）
    - 输出特征重要性、预测样本、模型对比报告
 
 5. **一键运行流程 (`run_master_pipeline.py`)**
@@ -84,9 +86,9 @@ EECS-6893-Big-Data-Analysis/
 - **地理信息：** latitude, longitude
 
 **数据质量：**
-- 所有活动均包含一级市场票价数据
-- 二级市场数据覆盖率：约 60%
-- Spotify 艺术家数据覆盖率：约 75%
+- 所有活动均包含一级市场票价数据（100% 覆盖）
+- 二级市场数据覆盖率：约 60%（仅用于分析，不用于预测）
+- Spotify 艺术家数据覆盖率：约 75%（作为重要预测特征）
 
 ---
 
@@ -147,15 +149,17 @@ python run_master_pipeline.py --mode dataproc
 
 ### 4. 单模型训练 (`spark_ml_master.py`)
 
-**功能：** 训练单个机器学习模型预测 SeatGeek 平均票价
+**功能：** 训练单个机器学习模型预浌 Ticketmaster 一级市场票价
 
 **预测目标：**
-- `sg_avg_price`：SeatGeek 二级市场平均票价
+- `tm_price_max`：Ticketmaster 最高票价（通过 --target max 指定）
+- `tm_price_min`：Ticketmaster 最低票价（通过 --target min 指定）
 
 **特征工程：**
-- **类别特征：** genre, subgenre, city, state, country
-- **数值特征：** tm_price_min, tm_price_max, price_range, year, month, weekday, has_spotify_data, has_secondary_market
+- **类别特征：** genre, subgenre, state
+- **数值特征：** spotify_popularity, spotify_followers, year, month, weekday, latitude, longitude
 - **编码方式：** StringIndexer + OneHotEncoder + StandardScaler
+- **注意：** 不再使用一级市场价格和二级市场价格作为特征，仅使用艺人热度、地点、时间等基础特征
 
 **支持算法：**
 - `--model-type rf`：Random Forest（默认）
@@ -164,15 +168,18 @@ python run_master_pipeline.py --mode dataproc
 
 **运行示例：**
 ```bash
-# 训练随机森林模型
-python run_master_pipeline.py --mode local --model-type rf
+# 训练随机森林模型（预测最高价）
+python run_master_pipeline.py --mode local --model-type rf --target max
+
+# 训练随机森林模型（预测最低价）
+python run_master_pipeline.py --mode local --model-type rf --target min
 ```
 
 **输出：**
-- `ml_results/predictions/`：测试集预测结果
-- `ml_results/metrics/`：评估指标（RMSE/MAE/R²）
+- `ml_results/predictions_max/` 或 `predictions_min/`：测试集预浌结果
+- `ml_results/metrics_max/` 或 `metrics_min/`：评估指标（RMSE/MAE/R²）
 - `ml_results/models/`：训练好的模型
-- `ml_results/feature_importance/`：特征重要性（树模型）
+- `ml_results/feature_importance_max/` 或 `feature_importance_min/`：特征重要性（树模型）
 
 ---
 
@@ -196,29 +203,29 @@ python run_master_pipeline.py --mode local --model-type rf
 **输出结构：**
 ```
 ml_multi_models/
-├── models/                      # 6 个训练好的模型
+├── models_max/                  # 预测最高价的6个模型
 │   ├── LinearRegression/
 │   ├── Lasso/
 │   ├── ElasticNet/
 │   ├── DecisionTree/
 │   ├── RandomForest/
 │   └── GBT/
-├── predictions_sample/          # 各模型预测样本（前 100 条）
-│   ├── LinearRegression_predictions.csv
-│   └── ...
-├── feature_importance/          # 树模型特征重要性
-│   ├── DecisionTree_importance.csv
-│   ├── RandomForest_importance.csv
-│   └── GBT_importance.csv
-└── metrics_comparison/          # 模型性能对比报告
-    └── metrics_comparison.csv
+├── models_min/                  # 预测最低价的6个模型
+├── predictions_sample_max/      # 最高价预浌样本
+├── predictions_sample_min/      # 最低价预测样本
+├── feature_importance_max/      # 最高价特征重要性
+├── feature_importance_min/      # 最低价特征重要性
+├── metrics_comparison_max_csv/  # 最高价模型对比
+└── metrics_comparison_min_csv/  # 最低价模型对比
 ```
 
-**关键指标对比文件：** `metrics_comparison.csv`
+**关键指标对比文件：** `metrics_comparison_max_csv/` 和 `metrics_comparison_min_csv/`
 ```
-Model               RMSE    MAE     R²      TrainSize  TestSize
-LinearRegression    105.67  78.23   0.721   2436       610
-RandomForest        92.45   65.89   0.798   2436       610
+Target         Model               RMSE    MAE     R²
+tm_price_max   LinearRegression    105.67  78.23   0.721
+tm_price_max   RandomForest        92.45   65.89   0.798
+tm_price_min   LinearRegression    45.32   32.15   0.765
+tm_price_min   RandomForest        38.21   25.43   0.812
 ...
 ```
 
@@ -396,8 +403,9 @@ python run_master_pipeline.py --mode dataproc
 ✅ **分布式计算**：利用 Apache Spark 处理大规模数据  
 ✅ **云原生架构**：支持 Google Cloud Dataproc 部署  
 ✅ **多维度分析**：地域、时间、类型、艺术家人气、二级市场溢价  
-✅ **票价预测建模**：基于多特征预测 SeatGeek 二级市场价格  
-✅ **一键运行流程**：支持本地和 Dataproc 两种模式
+✅ **一级市场票价预测**：基于艺人热度、地点、时间预浌 Ticketmaster 最高价和最低价  
+✅ **一键运行流程**：支持本地和 Dataproc 两种模式  
+✅ **多目标预测**：同时支持预测最高价和最低价，全面了解价格区间
 
 ---
 
@@ -405,9 +413,10 @@ python run_master_pipeline.py --mode dataproc
 
 1. **音乐活动市场分析**：了解不同城市、音乐类型的市场热度
 2. **艺术家人气排名**：基于 Spotify 数据分析艺术家人气
-3. **票价预测建模**：预测二级市场票价，辅助定价决策
-4. **二级市场溢价分析**：分析不同音乐类型的溢价情况
+3. **一级市场票价预浌**：基于艺人热度、地点、时间预浌 Ticketmaster 票价，辅助主办方定价决策
+4. **二级市场溶价分析**：分析不同音乐类型的溶价情况
 5. **时间趋势分析**：了解活动在不同时间段的分布规律
+6. **特征重要性分析**：了解哪些因素（艺人热度、地域、类型等）对票价影响最大
 
 ---
 

@@ -4,10 +4,10 @@
 """
 Spark ETL for master_df.csv data.
 
-将 master_df.csv 数据清洗、转换并输出为 Parquet 格式。
+Clean and transform master_df.csv and output as Parquet format.
 
 Usage:
-本地运行:
+Local:
     spark-submit spark_etl_master.py --input data/master_df.csv --output output/master_parquet
 
 Dataproc:
@@ -17,6 +17,7 @@ Dataproc:
       -- --input gs://bucket/data/master_df.csv \
          --output gs://bucket/output/master_parquet
 """
+
 
 import argparse
 from pyspark.sql import SparkSession
@@ -50,40 +51,63 @@ def parse_args():
     )
     return parser.parse_args()
 
-
 def parse_list_column(col_name: str):
-    """将字符串列表转换为第一个元素"""
+    # Convert a string-represented list to its first element
     return F.regexp_extract(F.col(col_name), r"\['([^']+)'\]", 1)
+
+def parse_list_column_1(col_name: str):
+    """
+    Handles cases like:
+    [64]              -> 64
+    [63, 49]          -> 63
+    ['NaN', 70, 67]   -> 70
+    ['NaN']           -> null
+    """
+    return (
+        F.expr(f"""
+            element_at(
+                filter(
+                    split(
+                        regexp_replace({col_name}, '\\\\[|\\\\]', ''),
+                        ','
+                    ),
+                    x -> trim(regexp_replace(x, "'", "")) != 'NaN'
+                         AND trim(regexp_replace(x, "'", "")) != ''
+                ),
+                1
+            )
+        """)
+    )
 
 
 def main():
     args = parse_args()
     spark = build_spark()
 
-    print(f"[INFO] Reading master_df.csv from: {args.input}")
+    print(f"Reading master_df.csv from: {args.input}")
     
-    # 读取 CSV
+    # Read CSV
     df = spark.read.option("header", "true").option("inferSchema", "true").csv(args.input)
     
-    print("[INFO] Original schema:")
+    print("Original schema:")
     df.printSchema()
-    print(f"[INFO] Total records: {df.count()}")
+    print(f"Total records: {df.count()}")
 
-    # 数据清洗和转换
+    # Data cleaning and transformation
     df_clean = (
         df
-        # 1. 解析日期列
+        # 1. Parse date columns
         .withColumn("event_date", F.to_date(F.col("date")))
         .withColumn("presale_start", F.to_timestamp(F.col("presale_date_start")))
         .withColumn("presale_end", F.to_timestamp(F.col("presale_date_end")))
         .withColumn("sale_start", F.to_timestamp(F.col("TM_sale_date_start")))
         
-        # 2. 解析列表字段（artists, spotify_followers, spotify_popularity）
+        # 2. Parse list-type columns (artists, spotify_followers, spotify_popularity)
         .withColumn("artist", parse_list_column("artists"))
-        .withColumn("spotify_followers_clean", parse_list_column("spotify_followers"))
-        .withColumn("spotify_popularity_clean", parse_list_column("spotify_popularity"))
+        .withColumn("spotify_followers_clean", parse_list_column_1("spotify_followers"))
+        .withColumn("spotify_popularity_clean", parse_list_column_1("spotify_popularity"))
         
-        # 3. 类型转换 - 价格字段
+        # 3. Type conversion - price columns
         .withColumn("tm_max_price", F.col("TM_max").cast(DoubleType()))
         .withColumn("tm_min_price", F.col("TM_min").cast(DoubleType()))
         .withColumn("sg_avg_price", F.col("SG_average_price").cast(DoubleType()))
@@ -92,58 +116,58 @@ def main():
         .withColumn("sh_max_price", F.col("SH_max_price").cast(DoubleType()))
         .withColumn("sh_min_price", F.col("SH_min_price").cast(DoubleType()))
         
-        # 4. 类型转换 - 计数字段
+        # 4. Type conversion - count columns
         .withColumn("sg_listing_count", F.col("SG_listing_count").cast(IntegerType()))
         .withColumn("sh_total_postings", F.col("SH_total_postings").cast(IntegerType()))
         .withColumn("sh_total_tickets", F.col("SH_total_tickets").cast(IntegerType()))
         
-        # 5. 类型转换 - Spotify 字段
+        # 5. Type conversion - Spotify columns
         .withColumn("spotify_followers", F.col("spotify_followers_clean").cast(IntegerType()))
         .withColumn("spotify_popularity", F.col("spotify_popularity_clean").cast(IntegerType()))
         
-        # 6. 类型转换 - 地理坐标
+        # 6. Type conversion - geography columns
         .withColumn("venue_lat", F.col("TM_venue _lat").cast(DoubleType()))
         .withColumn("venue_long", F.col("TM_venue_long").cast(DoubleType()))
         
-        # 7. 计算特征
+        # 7. Feature engineering
         .withColumn("price_range", F.col("tm_max_price") - F.col("tm_min_price"))
         .withColumn("has_spotify_data", F.col("spotify_followers").isNotNull())
         .withColumn("has_secondary_market", 
                     (F.col("sg_listing_count") > 0) | (F.col("sh_total_postings") > 0))
         
-        # 8. 时间特征
+        # 8. Time-based features
         .withColumn("year", F.year("event_date"))
         .withColumn("month", F.month("event_date"))
         .withColumn("weekday", F.dayofweek("event_date"))
         .withColumn("is_weekend", F.col("weekday").isin([1, 7]))  # 1=Sunday, 7=Saturday
     )
-
-    # 选择最终列
+    
+    # Select final columns
     df_final = df_clean.select(
-        # 基本信息
+        # Basic info
         F.col("TM_id").alias("event_id"),
         F.col("event_title"),
         F.col("artist"),
         "event_date",
         
-        # 场馆信息
+        # Venue 
         F.col("venue"),
         F.col("venue_city").alias("city"),
         F.col("venue_state").alias("state"),
         "venue_lat",
         "venue_long",
         
-        # 分类信息
+        # Classification
         F.col("genre"),
         F.col("subGenre").alias("subgenre"),
         F.col("event_type"),
         
-        # Ticketmaster 价格
+        # Ticketmaster prices
         "tm_max_price",
         "tm_min_price",
         "price_range",
         
-        # SeatGeek 数据
+        # SeatGeek data
         "sg_avg_price",
         "sg_min_price",
         "sg_max_price",
@@ -151,62 +175,62 @@ def main():
         F.col("SG_artists_score").cast(DoubleType()).alias("sg_artist_score"),
         F.col("SG_venue_score").cast(DoubleType()).alias("sg_venue_score"),
         
-        # StubHub 数据
+        # StubHub data
         "sh_max_price",
         "sh_min_price",
         "sh_total_postings",
         "sh_total_tickets",
         
-        # Spotify 数据
+        # Spotify data
         "spotify_followers",
         "spotify_popularity",
         "has_spotify_data",
         
-        # 市场特征
+        # Market features
         "has_secondary_market",
         
-        # 时间特征
+        # Time features
         "year",
         "month",
         "weekday",
         "is_weekend",
         
-        # 销售日期
+        # Sale dates
         "presale_start",
         "presale_end",
         "sale_start",
         
-        # 其他
+        # Others
         F.col("promoter"),
         F.col("span multiple days").alias("span_multiple_days")
     )
 
-    # 数据质量检查
-    print("\n[INFO] Data Quality Check:")
+    # Data quality check
+    print("\n Data Quality Check:")
     print(f"  Total records: {df_final.count()}")
     print(f"  Records with valid event_date: {df_final.filter(F.col('event_date').isNotNull()).count()}")
     print(f"  Records with artist: {df_final.filter(F.col('artist').isNotNull()).count()}")
     print(f"  Records with Spotify data: {df_final.filter(F.col('has_spotify_data')).count()}")
     print(f"  Records with secondary market: {df_final.filter(F.col('has_secondary_market')).count()}")
 
-    # 去重（基于 event_id）
+    # Deduplicate based on event_id
     df_dedup = df_final.dropDuplicates(["event_id"])
-    print(f"\n[INFO] After deduplication: {df_dedup.count()}")
+    print(f"\n After deduplication: {df_dedup.count()}")
 
-    # 过滤必需字段非空
+    # Filter for required non-null fields
     df_filtered = df_dedup.filter(
         F.col("event_id").isNotNull() &
         F.col("event_date").isNotNull() &
         F.col("artist").isNotNull()
     )
-    print(f"[INFO] After filtering (event_id, event_date, artist not null): {df_filtered.count()}")
+    print(f"After filtering (event_id, event_date, artist not null): {df_filtered.count()}")
 
-    # 显示示例数据
-    print("\n[INFO] Sample data:")
+    # Show sample data
+    print("\n Sample data:")
     df_filtered.show(5, truncate=False)
 
-    # 写入 Parquet（按年月分区）
-    print(f"\n[INFO] Writing Parquet to: {args.output}")
+    # Write to Parquet (partitioned by year and month)
+    print(f"\n Writing Parquet to: {args.output}")
     (
         df_filtered
         .write.mode("overwrite")
@@ -214,8 +238,8 @@ def main():
         .parquet(args.output)
     )
 
-    # 统计信息
-    print("\n[STATS] Final Statistics:")
+    # Statistics
+    print("\n Final Statistics:")
     df_filtered.select(
         F.count("*").alias("total_records"),
         F.countDistinct("artist").alias("unique_artists"),
@@ -225,7 +249,7 @@ def main():
         F.sum(F.when(F.col("has_secondary_market"), 1).otherwise(0)).alias("secondary_market_count")
     ).show()
 
-    print("[INFO] ETL complete.")
+    print("ETL complete.")
     spark.stop()
 
 

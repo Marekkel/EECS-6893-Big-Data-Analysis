@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Concert Ticket Pricing Demo</title>
+  <title>Concert Ticket Pricing</title>
   <style>
     :root { --bg:#0b1020; --muted:#9aa7c7; --text:#eef2ff; --line:#22305e; }
     * { box-sizing: border-box; }
@@ -199,7 +199,7 @@
   <div class="wrap">
     <header>
       <div>
-        <h1>Concert Ticket Pricing Demo</h1>
+        <h1>Concert Ticket Pricing</h1>
         <div class="sub">
           Given <b>artist popularity</b>, <b>location</b>, and <b>time</b>, we estimate <b>event occurrence probability</b>
           and predict the <b>primary-market</b> ticket price range (min/max).
@@ -244,12 +244,7 @@
           <span class="spinner" id="btnSpin"></span>
           <span id="btnText">Predict</span>
         </button>
-
         <div class="log" id="log">Ready.</div>
-
-        <!-- <div class="smallMuted" style="margin-top:10px;">
-          Tip: Use presets for a smooth live demo.
-        </div> -->
       </div>
 
       <!-- RIGHT -->
@@ -263,25 +258,25 @@
         <div class="kpis">
           <div class="kpi">
             <div class="t">Event Probability</div>
-            <div class="v" id="prob">—</div>
-            <div class="s" id="probHint">—</div>
+            <div class="v" id="prob"></div>
+            <div class="s" id="probHint"></div>
           </div>
           <div class="kpi">
             <div class="t">Predicted Min Price</div>
-            <div class="v" id="pmin">—</div>
-            <div class="s" id="rangeHint">—</div>
+            <div class="v" id="pmin"></div>
+            <div class="s" id="rangeHint"></div>
           </div>
           <div class="kpi">
             <div class="t">Predicted Max Price</div>
-            <div class="v" id="pmax">—</div>
-            <div class="s" id="maxHint">—</div>
+            <div class="v" id="pmax"></div>
+            <div class="s" id="maxHint"></div>
           </div>
         </div>
 
-        <div class="sectionTitle">Price range (min → max)</div>
+        <div class="sectionTitle">Price range (min - max)</div>
         <div class="miniCard rangeWrap">
           <div class="rangeMeta">
-            <div id="rangeMetaLeft">Range: —</div>
+            <div id="rangeMetaLeft">Range: </div>
             <div id="rangeMetaRight">Scale: $0 - $500</div>
           </div>
           <div class="rangeTrack">
@@ -289,8 +284,8 @@
             <div class="rangeFill" id="rangeFill"></div>
           </div>
           <div class="rangeLabelRow">
-            <div id="rangeMinLabel">Min: —</div>
-            <div id="rangeMaxLabel">Max: —</div>
+            <div id="rangeMinLabel">Min: </div>
+            <div id="rangeMaxLabel">Max: </div>
           </div>
         </div>
 
@@ -322,11 +317,8 @@
   </div>
 
   <script>
-    // ====== IMPORTANT ======
-    // UI shows no mock/real mode hints.
-    // Internally, keep a safe fallback to avoid demo failures.
-    const API_URL = "http://localhost:8000/api/predict"; // TODO: replace when backend is ready
-    const ALWAYS_FALLBACK_TO_LOCAL = true; // keep true for presentation safety
+    const API_URL = "https://ticket-pricing-api-csei5odcva-uc.a.run.app/api/predict";
+    const ALWAYS_FALLBACK_TO_LOCAL = true; // If backend fails, use local mock
 
     // Range bar scale (presentation-friendly)
     const RANGE_SCALE_MIN = 0;
@@ -334,11 +326,11 @@
 
     // ===== Helpers =====
     function fmtUSD(x) {
-      if (x === null || x === undefined || Number.isNaN(Number(x))) return "—";
+      if (x === null || x === undefined || Number.isNaN(Number(x))) return "--";
       return "$" + Number(x).toFixed(0);
     }
     function fmtPct(x) {
-      if (x === null || x === undefined || Number.isNaN(Number(x))) return "—";
+      if (x === null || x === undefined || Number.isNaN(Number(x))) return "--";
       return (Number(x) * 100).toFixed(1) + "%";
     }
     function clamp01(x) { return Math.max(0, Math.min(1, x)); }
@@ -439,14 +431,14 @@
       const minLabel = document.getElementById("rangeMinLabel");
       const maxLabel = document.getElementById("rangeMaxLabel");
 
-      metaRight.textContent = `Scale: ${fmtUSD(RANGE_SCALE_MIN)} – ${fmtUSD(RANGE_SCALE_MAX)}`;
+      metaRight.textContent = `Scale: ${fmtUSD(RANGE_SCALE_MIN)} - ${fmtUSD(RANGE_SCALE_MAX)}`;
       minLabel.textContent = `Min: ${fmtUSD(minP)}`;
       maxLabel.textContent = `Max: ${fmtUSD(maxP)}`;
 
       if (minP == null || maxP == null || Number.isNaN(Number(minP)) || Number.isNaN(Number(maxP))) {
         fill.style.left = "0%";
         fill.style.width = "0%";
-        metaLeft.textContent = "Range: —";
+        metaLeft.textContent = "Range: x Undefined";
         return;
       }
 
@@ -459,7 +451,7 @@
       fill.style.left = leftPct.toFixed(1) + "%";
       fill.style.width = Math.max(1.5, widthPct).toFixed(1) + "%";
 
-      metaLeft.textContent = `Range: ${fmtUSD(minP)} → ${fmtUSD(maxP)} (${fmtUSD(Number(maxP) - Number(minP))})`;
+      metaLeft.textContent = `Range: ${fmtUSD(minP)} - ${fmtUSD(maxP)} (${fmtUSD(Number(maxP) - Number(minP))})`;
     }
 
     // ===== History (last 5) =====
@@ -518,8 +510,8 @@
         prob >= 0.65 ? "High likelihood" : prob >= 0.40 ? "Medium likelihood" : "Low likelihood";
 
       const spread = (out.pred_max != null && out.pred_min != null) ? Math.max(0, out.pred_max - out.pred_min) : null;
-      document.getElementById("rangeHint").textContent = spread != null ? `Range width: ${fmtUSD(spread)}` : "—";
-      document.getElementById("maxHint").textContent = out.note || "—";
+      document.getElementById("rangeHint").textContent = spread != null ? `Range width: ${fmtUSD(spread)}` : "";
+      document.getElementById("maxHint").textContent = out.note || "";
 
       renderFeatureBars(out.top_features || []);
       renderRangeBar(out.pred_min, out.pred_max);
@@ -527,7 +519,6 @@
 
     // ===== Local fallback engine =====
     function localEngine(payload) {
-      // English comments only: deterministic outputs for demos.
       const cityKey = payload.city.toLowerCase();
       const majorCity = ["new york","los angeles","san francisco","chicago","boston","seattle","miami","austin","dallas","houston"].includes(cityKey);
 
@@ -599,9 +590,14 @@
 
     async function predict(payload) {
       try {
-        return await callBackend(payload);
+        console.log("🌐 Calling real backend API:", API_URL);
+        const result = await callBackend(payload);
+        console.log("✅ Backend response received:", result);
+        return result;
       } catch (e) {
+        console.warn("⚠️ Backend call failed:", e.message);
         if (!ALWAYS_FALLBACK_TO_LOCAL) throw e;
+        console.log("🔄 Using local fallback engine");
         return localEngine(payload);
       }
     }
@@ -650,3 +646,5 @@
   </script>
 </body>
 </html>
+
+

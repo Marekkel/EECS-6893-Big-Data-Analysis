@@ -8,7 +8,7 @@ Clean and transform master_df.csv and output as Parquet format.
 
 Usage:
 Local:
-    spark-submit spark_etl_master.py --input data/master_df.csv --output output/master_parquet
+    spark-submit spark_etl_master.py --input ../data/master_df.csv --output ../output/master_parquet
 
 Dataproc:
     gcloud dataproc jobs submit pyspark spark_etl_master.py \
@@ -41,13 +41,13 @@ def parse_args():
         "--input",
         type=str,
         required=True,
-        help="Input CSV path: data/master_df.csv or gs://bucket/data/master_df.csv"
+        help="Input CSV path: ../data/master_df.csv or gs://bucket/data/master_df.csv"
     )
     parser.add_argument(
         "--output",
         type=str,
         required=True,
-        help="Output Parquet path: output/master_parquet or gs://bucket/output/master_parquet"
+        help="Output Parquet path: ../output/master_parquet or gs://bucket/output/master_parquet"
     )
     return parser.parse_args()
 

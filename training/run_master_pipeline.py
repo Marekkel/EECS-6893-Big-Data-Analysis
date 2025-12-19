@@ -20,11 +20,11 @@ import json
 
 def load_config():
     # Load Dataproc configuration
-    if not os.path.exists("dataproc_config.json"):
-        print("dataproc_config.json does not exist")
+    if not os.path.exists("../dataproc_config.json"):
+        print("../dataproc_config.json does not exist")
         sys.exit(1)
     
-    with open("dataproc_config.json", "r") as f:
+    with open("../dataproc_config.json", "r") as f:
         return json.load(f)
 
 
@@ -48,62 +48,62 @@ def run_local():
     print("\n Local Mode - Using master_df.csv")
     
     # Check data file
-    if not os.path.exists("data/master_df.csv"):
-        print("data/master_df.csv does not exist")
+    if not os.path.exists("../data/master_df.csv"):
+        print("../data/master_df.csv does not exist")
         return False
     
     print("Data file exists")
     
     # Step 1: ETL
     if not run_command(
-        "spark-submit spark_etl_master.py --input data/master_df.csv --output output/master_parquet",
+        "spark-submit spark_etl_master.py --input ../data/master_df.csv --output ../output/master_parquet",
         "Step 1/6: ETL - Data cleaning and transformation"
     ):
         return False
     
     # Step 2: Analytics
     if not run_command(
-        "spark-submit spark_analysis_master.py --input output/master_parquet --output output/analytics",
+        "spark-submit spark_analysis_master.py --input ../output/master_parquet --output ../output/analytics",
         "Step 2/6: Analytics - Multi-dimensional statistics"
     ):
         return False
     
     # Step 3: Single-model ML (MAX)
     if not run_command(
-        "spark-submit spark_ml_master_max.py --input output/master_parquet --output output/ml_results_max --model-type rf",
+        "spark-submit spark_ml_master_max.py --input ../output/master_parquet --output ../output/ml_results_max --model-type rf",
         "Step 3/6: ML - Single-model price prediction (RandomForest) (MAX)"
     ):
         return False
     
     # Step 4: Multi-model comparison training (MAX)
     if not run_command(
-        "spark-submit spark_ml_multi_models_max.py --input output/master_parquet --output output/ml_multi_models_max",
+        "spark-submit spark_ml_multi_models_max.py --input ../output/master_parquet --output ../output/ml_multi_models_max",
         "Step 4/6: ML - Multi-model comparison training (6 models) (MAX)"
     ):
         return False
     
     # Step 5: Single-model ML (MIN)
     if not run_command(
-        "spark-submit spark_ml_master_min.py --input output/master_parquet --output output/ml_results_min --model-type rf",
+        "spark-submit spark_ml_master_min.py --input ../output/master_parquet --output ../output/ml_results_min --model-type rf",
         "Step 5/6: ML - Single-model price prediction (RandomForest) (MIN)"
     ):
         return False
     
     # Step 6: Multi-model comparison training (MIN)
     if not run_command(
-        "spark-submit spark_ml_multi_models_min.py --input output/master_parquet --output output/ml_multi_models_min",
+        "spark-submit spark_ml_multi_models_min.py --input ../output/master_parquet --output ../output/ml_multi_models_min",
         "Step 6/6: ML - Multi-model comparison training (6 models) (MIN)"
     ):
         return False
     
     print("\n Local pipeline completed!")
     print("\n Output locations:")
-    print("  - ETL output: output/master_parquet/")
-    print("  - Analytics results: output/analytics/")
-    print("  - Single-model ML (MAX): output/ml_results_max/")
-    print("  - Multi-model comparison (MAX): output/ml_multi_models_max/")
-    print("  - Single-model ML (MIN): output/ml_results_min/")
-    print("  - Multi-model comparison (MIN): output/ml_multi_models_min/")
+    print("  - ETL output: ../output/master_parquet/")
+    print("  - Analytics results: ../output/analytics/")
+    print("  - Single-model ML (MAX): ../output/ml_results_max/")
+    print("  - Multi-model comparison (MAX): ../output/ml_multi_models_max/")
+    print("  - Single-model ML (MIN): ../output/ml_results_min/")
+    print("  - Multi-model comparison (MIN): ../output/ml_multi_models_min/")
     
     return True
 
@@ -128,7 +128,7 @@ def run_dataproc():
     print("\n Uploading files to GCS...")
     
     uploads = [
-        ("data/master_df.csv", f"gs://{bucket}/data/master_df.csv"),
+        ("../data/master_df.csv", f"gs://{bucket}/data/master_df.csv"),
         ("spark_etl_master.py", f"gs://{bucket}/scripts/spark_etl_master.py"),
         ("spark_analysis_master.py", f"gs://{bucket}/scripts/spark_analysis_master.py"),
         ("spark_ml_master_max.py", f"gs://{bucket}/scripts/spark_ml_master_max.py"),

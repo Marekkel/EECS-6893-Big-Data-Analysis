@@ -1,310 +1,471 @@
-# Dataproc 快速设置指南
+# Google Cloud Dataproc Setup Guide
 
-## 🎯 目标
-
-在 Google Cloud Dataproc 上运行 Spark 作业，处理整合后的数据。
+Complete guide for setting up Google Cloud Dataproc clusters to run Apache Spark ML pipelines for concert ticket price prediction.
 
 ---
 
-## 📋 前置要求
+## 📋 Prerequisites
 
-1. **Google Cloud Platform 账户**
-2. **gcloud CLI 已安装** - https://cloud.google.com/sdk/docs/install
-3. **已启用的 API:**
-   - Dataproc API
-   - Cloud Storage API
-   - Compute Engine API
+### 1. GCP Account & Project
+- Active Google Cloud Platform account
+- Existing project with billing enabled
+- Project ID (e.g., `eecs-6893-big-data`)
 
----
-
-## 🚀 快速开始（5 步）
-
-### **Step 1: 创建 GCS Bucket**
-
+### 2. Required APIs
+Enable the following APIs in your GCP project:
 ```bash
-# 设置变量
-export PROJECT_ID="your-project-id"
-export BUCKET_NAME="your-bucket-name"
-export REGION="us-east1"
+gcloud services enable dataproc.googleapis.com
+gcloud services enable compute.googleapis.com
+gcloud services enable storage-api.googleapis.com
+gcloud services enable storage-component.googleapis.com
+```
 
-# 创建 bucket
-gsutil mb -p $PROJECT_ID -l $REGION gs://$BUCKET_NAME/
+### 3. Install Google Cloud SDK
+**Windows (PowerShell)**:
+```powershell
+# Download and install from https://cloud.google.com/sdk/docs/install
+# Or use Chocolatey
+choco install gcloudsdk
 
-# 验证
-gsutil ls gs://$BUCKET_NAME/
+# Initialize
+gcloud init
+```
+
+**Linux/macOS**:
+```bash
+curl https://sdk.cloud.google.com | bash
+exec -l $SHELL
+gcloud init
+```
+
+### 4. Set Default Project
+```bash
+gcloud config set project YOUR_PROJECT_ID
+gcloud config set compute/region us-central1
+gcloud config set compute/zone us-central1-a
 ```
 
 ---
 
-### **Step 2: 创建 Dataproc 集群**
+## 🪣 Create GCS Bucket
 
-#### **选项 A: 标准集群（推荐用于开发）**
+### Create Bucket for Data and Scripts
 ```bash
-gcloud dataproc clusters create ticketmaster-cluster \
-  --project=$PROJECT_ID \
-  --region=$REGION \
-  --zone=${REGION}-b \
-  --master-machine-type=n1-standard-4 \
-  --master-boot-disk-size=100 \
-  --num-workers=2 \
-  --worker-machine-type=n1-standard-4 \
-  --worker-boot-disk-size=100 \
-  --image-version=2.1-debian11 \
-  --optional-components=JUPYTER \
-  --enable-component-gateway
+# Create bucket (must be globally unique name)
+gsutil mb -l us-central1 gs://your-bucket-name/
+
+# Verify bucket creation
+gsutil ls
+
+# Create folder structure
+gsutil mkdir gs://your-bucket-name/data/
+gsutil mkdir gs://your-bucket-name/scripts/
+gsutil mkdir gs://your-bucket-name/output/
 ```
 
-**成本预估:** ~$0.50-1.00/小时
+### Upload Project Files
+```powershell
+# Upload data file
+gsutil cp data/master_df.csv gs://your-bucket-name/data/
 
-#### **选项 B: 最小集群（节省成本）**
-```bash
-gcloud dataproc clusters create ticketmaster-cluster-mini \
-  --project=$PROJECT_ID \
-  --region=$REGION \
-  --zone=${REGION}-b \
-  --single-node \
-  --master-machine-type=n1-standard-2 \
-  --master-boot-disk-size=50 \
-  --image-version=2.1-debian11
-```
+# Upload all training scripts
+gsutil cp training/*.py gs://your-bucket-name/scripts/
 
-**成本预估:** ~$0.15-0.30/小时
-
-#### **选项 C: 临时集群（最省钱）**
-作业完成后自动删除：
-```bash
-# 在提交作业时加上 --max-idle 参数
-# 见 Step 4
+# Upload configuration file
+gsutil cp dataproc_config.json gs://your-bucket-name/
 ```
 
 ---
 
-### **Step 3: 配置项目**
+## 🖥️ Create Dataproc Cluster
 
-编辑 `dataproc_config.json`:
+### Method 1: GCP Console (Recommended for First-Time Users)
+
+1. **Navigate to Dataproc**:
+   - Go to https://console.cloud.google.com/dataproc/
+   - Click "CREATE CLUSTER"
+
+2. **Cluster Configuration**:
+   - **Name**: `spark-ml-cluster` (or your preferred name)
+   - **Region**: `us-central1`
+   - **Cluster Type**: `Standard (1 master, N workers)`
+
+3. **Machine Configuration**:
+   - **Master Node**:
+     - Machine type: `n1-standard-4` (4 vCPUs, 15 GB RAM)
+     - Disk size: `50 GB` Standard persistent disk
+   
+   - **Worker Nodes**:
+     - Number of workers: `2`
+     - Machine type: `n1-standard-4` (4 vCPUs, 15 GB RAM)
+     - Disk size: `50 GB` Standard persistent disk per worker
+
+4. **Optional Components** (Advanced Settings):
+   - Enable "Jupyter Notebook" (for interactive data exploration)
+   - Enable "Component Gateway" (for accessing UIs)
+
+5. **Initialization Actions** (Optional):
+   - None required for basic Spark ML pipeline
+
+6. **Click "CREATE"** - Takes ~2-5 minutes
+
+---
+
+### Method 2: gcloud CLI (Recommended for Automation)
+
+**Basic Cluster** (Minimal Cost):
+```bash
+gcloud dataproc clusters create spark-ml-cluster \
+    --region=us-central1 \
+    --zone=us-central1-a \
+    --master-machine-type=n1-standard-4 \
+    --master-boot-disk-size=50 \
+    --num-workers=2 \
+    --worker-machine-type=n1-standard-4 \
+    --worker-boot-disk-size=50 \
+    --image-version=2.0-debian10 \
+    --enable-component-gateway \
+    --optional-components=JUPYTER
+```
+
+**Production Cluster** (Higher Performance):
+```bash
+gcloud dataproc clusters create spark-ml-production \
+    --region=us-central1 \
+    --zone=us-central1-a \
+    --master-machine-type=n1-standard-8 \
+    --master-boot-disk-size=100 \
+    --num-workers=4 \
+    --worker-machine-type=n1-standard-8 \
+    --worker-boot-disk-size=100 \
+    --image-version=2.0-debian10 \
+    --enable-component-gateway \
+    --optional-components=JUPYTER \
+    --properties=spark:spark.executor.memory=4g,spark:spark.executor.cores=2
+```
+
+**Preemptible Workers Cluster** (Cost Savings 60-90%):
+```bash
+gcloud dataproc clusters create spark-ml-preemptible \
+    --region=us-central1 \
+    --zone=us-central1-a \
+    --master-machine-type=n1-standard-4 \
+    --master-boot-disk-size=50 \
+    --num-workers=2 \
+    --worker-machine-type=n1-standard-4 \
+    --worker-boot-disk-size=50 \
+    --num-preemptible-workers=4 \
+    --image-version=2.0-debian10
+```
+
+---
+
+## 📝 Update dataproc_config.json
+
+Create/edit the configuration file with your cluster details:
+
 ```json
 {
-  "project_id": "your-actual-project-id",
-  "region": "us-east1",
-  "cluster_name": "ticketmaster-cluster",
-  "bucket_name": "your-actual-bucket-name",
-  "data_path": "ticketmaster_data",
-  "output_path": "ticketmaster_output"
+  "project_id": "eecs-6893-big-data",
+  "cluster_name": "spark-ml-cluster",
+  "region": "us-central1",
+  "bucket_name": "your-bucket-name",
+  "input_path": "gs://your-bucket-name/data/master_df.csv",
+  "output_base_path": "gs://your-bucket-name/output",
+  "scripts": {
+    "etl": "gs://your-bucket-name/scripts/spark_etl_master.py",
+    "analysis": "gs://your-bucket-name/scripts/spark_analysis_master.py",
+    "ml_max": "gs://your-bucket-name/scripts/spark_ml_master_max.py",
+    "ml_min": "gs://your-bucket-name/scripts/spark_ml_master_min.py",
+    "multi_max": "gs://your-bucket-name/scripts/spark_ml_multi_models_max.py",
+    "multi_min": "gs://your-bucket-name/scripts/spark_ml_multi_models_min.py"
+  }
 }
 ```
 
----
-
-### **Step 4: 运行快速开始脚本**
-
+**Upload to GCS**:
 ```bash
-# Dataproc 模式
-python quickstart_integration.py --mode dataproc
-```
-
-**脚本会自动：**
-1. ✅ 本地整合数据
-2. ✅ 上传到 GCS
-3. ✅ 提交 ETL 作业
-4. ✅ 提交分析作业（可选）
-5. ✅ 提交 ML 作业（可选）
-
----
-
-### **Step 5: 查看结果**
-
-```bash
-# 查看输出文件
-gsutil ls -r gs://$BUCKET_NAME/ticketmaster_output/
-
-# 下载结果
-gsutil cp -r gs://$BUCKET_NAME/ticketmaster_output/ ./output/
-
-# 查看 Parquet 文件
-python view_parquet.py output/ticketmaster_output/enriched_parquet/
+gsutil cp dataproc_config.json gs://your-bucket-name/
 ```
 
 ---
 
-## 🛠️ 手动提交作业（高级）
+## ▶️ Run Spark Jobs on Dataproc
 
-### **ETL 作业**
-```bash
-gcloud dataproc jobs submit pyspark spark_etl_enriched.py \
-  --cluster=ticketmaster-cluster \
-  --region=us-east1 \
-  --project=$PROJECT_ID \
-  -- --input gs://$BUCKET_NAME/ticketmaster_data/enriched_events.csv \
-     --output gs://$BUCKET_NAME/ticketmaster_output/enriched_parquet
+### Using run_master_pipeline.py (Recommended)
+```powershell
+# Ensure dataproc_config.json is updated with correct values
+python training/run_master_pipeline.py --mode dataproc
 ```
 
-### **分析作业**
+This will automatically:
+1. ✅ Submit ETL job
+2. ✅ Wait for completion
+3. ✅ Submit Analytics job
+4. ✅ Submit ML max price job
+5. ✅ Submit Multi-model max price job
+6. ✅ Submit ML min price job
+7. ✅ Submit Multi-model min price job
+
+---
+
+### Manual Job Submission (Individual Scripts)
+
+#### 1️⃣ ETL Job
 ```bash
-gcloud dataproc jobs submit pyspark spark_analysis_events.py \
-  --cluster=ticketmaster-cluster \
-  --region=us-east1 \
-  --project=$PROJECT_ID \
-  -- --input gs://$BUCKET_NAME/ticketmaster_output/enriched_parquet \
-     --output gs://$BUCKET_NAME/ticketmaster_output/analytics
+gcloud dataproc jobs submit pyspark \
+    gs://your-bucket-name/scripts/spark_etl_master.py \
+    --cluster=spark-ml-cluster \
+    --region=us-central1 \
+    -- \
+    --input gs://your-bucket-name/data/master_df.csv \
+    --output gs://your-bucket-name/output/master_parquet
 ```
 
-### **ML 作业（票价预测）**
+#### 2️⃣ Analytics Job
 ```bash
-gcloud dataproc jobs submit pyspark spark_ml_price_prediction.py \
-  --cluster=ticketmaster-cluster \
-  --region=us-east1 \
-  --project=$PROJECT_ID \
-  -- --input gs://$BUCKET_NAME/ticketmaster_output/enriched_parquet \
-     --metrics-output gs://$BUCKET_NAME/ticketmaster_output/ml/metrics \
-     --model-output gs://$BUCKET_NAME/ticketmaster_output/ml/models/price_predictor \
-     --model-type rf
+gcloud dataproc jobs submit pyspark \
+    gs://your-bucket-name/scripts/spark_analysis_master.py \
+    --cluster=spark-ml-cluster \
+    --region=us-central1 \
+    -- \
+    --input gs://your-bucket-name/output/master_parquet \
+    --output gs://your-bucket-name/output/analytics
+```
+
+#### 3️⃣ ML Max Price Job
+```bash
+gcloud dataproc jobs submit pyspark \
+    gs://your-bucket-name/scripts/spark_ml_master_max.py \
+    --cluster=spark-ml-cluster \
+    --region=us-central1 \
+    -- \
+    --input gs://your-bucket-name/output/master_parquet \
+    --output gs://your-bucket-name/output/ml_results_max \
+    --model-type rf
+```
+
+#### 4️⃣ Multi-Model Max Price Job
+```bash
+gcloud dataproc jobs submit pyspark \
+    gs://your-bucket-name/scripts/spark_ml_multi_models_max.py \
+    --cluster=spark-ml-cluster \
+    --region=us-central1 \
+    -- \
+    --input gs://your-bucket-name/output/master_parquet \
+    --output gs://your-bucket-name/output/ml_multi_models_max
 ```
 
 ---
 
-## 💰 成本优化
+## 📊 Monitor Job Progress
 
-### **1. 使用临时集群**
-作业完成后自动删除：
+### GCP Console (Visual Monitoring)
+1. Go to https://console.cloud.google.com/dataproc/jobs
+2. Select your region (e.g., `us-central1`)
+3. View job status:
+   - 🟢 **Running**: Job in progress
+   - ✅ **Succeeded**: Job completed successfully
+   - ❌ **Failed**: Job encountered errors
+
+4. Click job to view:
+   - **Driver Output**: Application logs
+   - **Yarn Logs**: Detailed Spark logs
+   - **Job Details**: Configuration, timing, resources
+
+### CLI Monitoring
 ```bash
-gcloud dataproc jobs submit pyspark spark_etl_enriched.py \
-  --cluster=ticketmaster-cluster-temp \
-  --region=us-east1 \
-  --project=$PROJECT_ID \
-  --max-idle=10m \
-  -- --input gs://$BUCKET_NAME/...
+# List all jobs
+gcloud dataproc jobs list --region=us-central1
+
+# Get specific job status
+gcloud dataproc jobs describe JOB_ID --region=us-central1
+
+# View job output logs
+gcloud dataproc jobs wait JOB_ID --region=us-central1
 ```
 
-### **2. 使用抢占式 Worker**
+### Real-Time Logs
 ```bash
-gcloud dataproc clusters create ticketmaster-cluster \
-  --num-workers=2 \
-  --num-preemptible-workers=2 \
-  --preemptible-worker-boot-disk-size=50 \
-  ...
-```
-
-### **3. 及时删除集群**
-```bash
-gcloud dataproc clusters delete ticketmaster-cluster \
-  --region=us-east1 \
-  --project=$PROJECT_ID
-```
-
-### **4. 使用自动缩放**
-```bash
-gcloud dataproc clusters create ticketmaster-cluster \
-  --enable-autoscaling \
-  --autoscaling-policy=projects/$PROJECT_ID/regions/$REGION/autoscalingPolicies/default \
-  ...
+# Stream job logs in real-time
+gcloud dataproc jobs wait JOB_ID --region=us-central1
 ```
 
 ---
 
-## 📊 监控作业
+## 📥 Download Results from GCS
 
-### **查看作业状态**
-```bash
-# 列出所有作业
-gcloud dataproc jobs list \
-  --region=$REGION \
-  --project=$PROJECT_ID
+### Download All Output Files
+```powershell
+# Download entire output directory
+gsutil -m cp -r gs://your-bucket-name/output/ ./
 
-# 查看特定作业
-gcloud dataproc jobs describe <JOB_ID> \
-  --region=$REGION \
-  --project=$PROJECT_ID
+# Download specific folder
+gsutil cp -r gs://your-bucket-name/output/analytics/ ./output/
+
+# Download single file
+gsutil cp gs://your-bucket-name/output/ml_results_max/metrics/*.csv ./
 ```
 
-### **Web UI**
-1. 访问 GCP Console: https://console.cloud.google.com/dataproc
-2. 选择你的集群
-3. 点击 "Web Interfaces" 查看 Spark UI
-
----
-
-## 🔧 故障排查
-
-### **问题 1: 权限错误**
+### View Files Directly in GCS
 ```bash
-# 确保服务账户有权限访问 GCS
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member=serviceAccount:$SERVICE_ACCOUNT \
-  --role=roles/storage.objectAdmin
-```
+# List files
+gsutil ls -r gs://your-bucket-name/output/
 
-### **问题 2: 集群创建失败**
-```bash
-# 检查配额
-gcloud compute project-info describe --project=$PROJECT_ID
+# Preview CSV file (first 20 lines)
+gsutil cat gs://your-bucket-name/output/analytics/top_cities/*.csv | head -20
 
-# 检查 API 是否启用
-gcloud services list --enabled --project=$PROJECT_ID
-```
-
-### **问题 3: 作业失败**
-```bash
-# 查看作业日志
-gcloud dataproc jobs describe <JOB_ID> \
-  --region=$REGION \
-  --project=$PROJECT_ID
-
-# 查看 Spark 日志
-gsutil cat gs://$BUCKET_NAME/google-cloud-dataproc-metainfo/<CLUSTER-UUID>/jobs/<JOB_ID>/driveroutput.000000000
+# Count files
+gsutil ls gs://your-bucket-name/output/analytics/** | wc -l
 ```
 
 ---
 
-## 📚 相关文档
+## 🛑 Delete Cluster (Save Costs!)
 
-- **Dataproc 文档:** https://cloud.google.com/dataproc/docs
-- **定价计算器:** https://cloud.google.com/products/calculator
-- **最佳实践:** https://cloud.google.com/dataproc/docs/concepts/iam/iam
+### IMPORTANT: Delete cluster when not in use to avoid charges!
 
----
+**GCP Console**:
+1. Go to https://console.cloud.google.com/dataproc/
+2. Select cluster
+3. Click "DELETE"
 
-## ✅ 检查清单
-
-**设置前:**
-- [ ] GCP 账户已创建
-- [ ] gcloud CLI 已安装并认证
-- [ ] 已启用必要的 API
-- [ ] 已创建 GCS Bucket
-
-**运行前:**
-- [ ] `dataproc_config.json` 已正确配置
-- [ ] Dataproc 集群已创建
-- [ ] 本地数据已整合 (`data/enriched_events.csv`)
-
-**运行后:**
-- [ ] 检查 GCS 输出文件
-- [ ] 下载结果到本地
-- [ ] 删除临时集群（节省成本）
-
----
-
-## 💡 快速命令参考
-
+**CLI**:
 ```bash
-# 设置环境变量
-export PROJECT_ID="your-project-id"
-export BUCKET_NAME="your-bucket"
-export REGION="us-east1"
-export CLUSTER_NAME="ticketmaster-cluster"
-
-# 一键创建集群
-gcloud dataproc clusters create $CLUSTER_NAME \
-  --region=$REGION --num-workers=2 \
-  --master-machine-type=n1-standard-4 \
-  --worker-machine-type=n1-standard-4
-
-# 一键运行
-python quickstart_integration.py --mode dataproc
-
-# 一键清理
-gcloud dataproc clusters delete $CLUSTER_NAME --region=$REGION
+gcloud dataproc clusters delete spark-ml-cluster --region=us-central1
 ```
 
+**Cost Estimate**:
+- Cluster running 24/7: **~$200-400/month**
+- On-demand usage (4 hours/week): **~$20-40/month**
+
 ---
 
-**需要帮助？** 查看项目 README 或 EXTERNAL_DATA_WORKFLOW.md
+## 💰 Cost Optimization Strategies
+
+### 1. Use Preemptible Workers
+- Save 60-90% on compute costs
+- Add `--num-preemptible-workers=4` to cluster creation
+- Risk: Workers can be terminated (Spark auto-recovery)
+
+### 2. Auto-Scaling
+Enable cluster auto-scaling:
+```bash
+gcloud dataproc clusters create spark-ml-cluster \
+    --enable-component-gateway \
+    --autoscaling-policy=policy-name
+```
+
+### 3. Scheduled Cluster Deletion
+Automatically delete cluster after inactivity:
+```bash
+gcloud dataproc clusters create spark-ml-cluster \
+    --max-idle=30m \
+    --max-age=2h
+```
+
+### 4. Use Regional Buckets
+Keep GCS buckets in same region as Dataproc cluster to avoid egress charges.
+
+### 5. Monitor Costs
+- View costs: https://console.cloud.google.com/billing/
+- Set budget alerts
+- Enable cost recommendations
+
+---
+
+## 🔧 Troubleshooting
+
+### Issue 1: "Permission Denied" Error
+**Solution**:
+```bash
+# Grant Dataproc service account access to GCS
+gsutil iam ch serviceAccount:YOUR_PROJECT_NUMBER-compute@developer.gserviceaccount.com:objectAdmin gs://your-bucket-name
+```
+
+### Issue 2: "Cluster Creation Failed"
+**Common Causes**:
+- Insufficient quota (check GCP quotas)
+- Region/zone unavailable (try different zone)
+- Billing not enabled (enable billing)
+
+**Solution**:
+```bash
+# Check quotas
+gcloud compute project-info describe --project=YOUR_PROJECT_ID
+
+# Request quota increase
+https://console.cloud.google.com/iam-admin/quotas
+```
+
+### Issue 3: "Job Failed - Out of Memory"
+**Solution**: Increase executor memory
+```bash
+gcloud dataproc jobs submit pyspark script.py \
+    --cluster=spark-ml-cluster \
+    --region=us-central1 \
+    --properties=spark.executor.memory=8g,spark.driver.memory=8g
+```
+
+### Issue 4: "Cannot Find Input File"
+**Solution**: Verify GCS paths
+```bash
+# Check if file exists
+gsutil ls gs://your-bucket-name/data/master_df.csv
+
+# Upload if missing
+gsutil cp data/master_df.csv gs://your-bucket-name/data/
+```
+
+### Issue 5: "Cluster Too Slow"
+**Solutions**:
+1. Increase worker count: `--num-workers=4`
+2. Upgrade machine type: `--worker-machine-type=n1-highmem-8`
+3. Add preemptible workers for scale: `--num-preemptible-workers=8`
+
+---
+
+## 🎓 Quick Reference
+
+### Essential Commands Cheat Sheet
+```bash
+# Create cluster
+gcloud dataproc clusters create NAME --region=REGION
+
+# Submit job
+gcloud dataproc jobs submit pyspark SCRIPT --cluster=NAME --region=REGION
+
+# List jobs
+gcloud dataproc jobs list --region=REGION
+
+# Delete cluster
+gcloud dataproc clusters delete NAME --region=REGION
+
+# Upload to GCS
+gsutil cp LOCAL_FILE gs://BUCKET/PATH
+
+# Download from GCS
+gsutil cp gs://BUCKET/PATH LOCAL_PATH
+
+# List GCS files
+gsutil ls -r gs://BUCKET/
+```
+
+### Default Dataproc Cluster Specs
+- **Image**: Debian 10 with Hadoop 3.2, Spark 3.1
+- **Python**: 3.8+
+- **Installed Libraries**: NumPy, pandas, scikit-learn
+- **Spark Submit**: Automatically configured
+
+---
+
+## 📚 Additional Resources
+
+- **Dataproc Documentation**: https://cloud.google.com/dataproc/docs
+- **Pricing Calculator**: https://cloud.google.com/products/calculator
+- **Best Practices**: https://cloud.google.com/dataproc/docs/concepts/best-practices
+- **Spark Configuration**: https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/cluster-properties
+
+---
+
+**Last Updated**: December 18, 2025

@@ -15,8 +15,8 @@ Target variable: tm_max_price
 Usage:
 Local:
     spark-submit spark_ml_master_max.py \
-      --input output/master_parquet \
-      --output output/ml_results_max
+      --input ../output/master_parquet \
+      --output ../output/ml_results_max
 
 Dataproc:
     gcloud dataproc jobs submit pyspark spark_ml_master_max.py \

@@ -15,8 +15,8 @@ Target variable: tm_min_price
 Usage:
 Local:
     spark-submit spark_ml_master_min.py \
-      --input output/master_parquet \
-      --output output/ml_results_min
+      --input ../output/master_parquet \
+      --output ../output/ml_results_min
 
 Dataproc:
     gcloud dataproc jobs submit pyspark spark_ml_master_min.py \

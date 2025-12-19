@@ -15,8 +15,8 @@ Perform multi-dimensional analysis on cleaned data:
 Usage:
 Local:
     spark-submit spark_analysis_master.py \
-      --input output/master_parquet \
-      --output output/analytics
+      --input ../output/master_parquet \
+      --output ../output/analytics
 
 Dataproc:
     gcloud dataproc jobs submit pyspark spark_analysis_master.py \

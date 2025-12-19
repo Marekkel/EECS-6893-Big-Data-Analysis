@@ -1,15 +1,15 @@
-# 项目输出文件指南
+# Project Output Files Guide
 
-运行 `python run_master_pipeline.py --mode [local/dataproc]` 后会生成以下文件结构：
+After running `python training/run_master_pipeline.py --mode [local/dataproc]`, the following file structure will be generated:
 
 ---
 
-## 📂 输出目录结构
+## 📂 Output Directory Structure
 
-### 本地模式 (--mode local)
+### Local Mode (--mode local)
 ```
 output/
-├── master_parquet/              # 步骤 1: ETL 清洗后的数据
+├── master_parquet/              # Step 1: ETL cleaned data
 │   ├── year=2017/
 │   │   ├── month=1/
 │   │   │   └── part-xxxxx.snappy.parquet
@@ -19,7 +19,7 @@ output/
 │   └── year=2018/
 │       └── ...
 │
-├── analytics/                   # 步骤 2: 统计分析结果
+├── analytics/                   # Step 2: Statistical analysis results
 │   ├── events_per_year_genre/
 │   │   └── part-00000-xxxxx.csv
 │   ├── top_cities/
@@ -33,88 +33,91 @@ output/
 │   └── price_by_state/
 │       └── part-00000-xxxxx.csv
 │
-├── ml_results/                  # 步骤 3: 单模型机器学习结果
+├── ml_results_max/              # Step 3: Single model ML results (max price)
 │   ├── predictions/
-│   │   └── part-00000-xxxxx.csv (预测结果)
+│   │   └── part-00000-xxxxx.csv (prediction results)
 │   ├── metrics/
-│   │   └── part-00000-xxxxx.csv (评估指标)
-│   └── feature_importance/
-│       └── part-00000-xxxxx.csv (特征重要性)
+│   │   └── part-00000-xxxxx.csv (evaluation metrics)
+│   ├── feature_importance/
+│   │   └── part-00000-xxxxx.csv (feature importance)
+│   └── avg_encoding_max/        # Average encoding mappings
 │
-└── ml_multi_models/             # 步骤 4: 多模型对比训练结果
-    ├── models/                  # 6 种模型文件
-    │   ├── linear_regression/
-    │   ├── lasso_regression/
-    │   ├── elastic_net/
-    │   ├── decision_tree/
-    │   ├── random_forest/
-    │   └── gbt/
-    ├── predictions_sample/      # 每个模型的预测样例
-    │   ├── linear_regression/
-    │   ├── lasso_regression/
-    │   ├── elastic_net/
-    │   ├── decision_tree/
-    │   ├── random_forest/
-    │   └── gbt/
-    ├── feature_importance/      # 树模型的特征重要性
-    │   ├── decision_tree/
-    │   ├── random_forest/
-    │   └── gbt/
-    ├── metrics_comparison_csv/  # 所有模型对比 (CSV)
-    │   └── part-00000-xxxxx.csv
-    └── metrics_comparison_json/ # 所有模型对比 (JSON)
-        └── part-00000-xxxxx.json
+├── ml_results_min/              # Step 5: Single model ML results (min price)
+│   ├── predictions/
+│   ├── metrics/
+│   ├── feature_importance/
+│   └── avg_encoding_min/
+│
+├── ml_multi_models_max/         # Step 4: Multi-model comparison results (max price)
+│   ├── models/                  # 6 model files
+│   │   ├── linear_regression/
+│   │   ├── lasso_regression/
+│   │   ├── elastic_net/
+│   │   ├── decision_tree/
+│   │   ├── random_forest/
+│   │   └── gbt/
+│   ├── predictions_sample/      # Prediction samples for each model
+│   ├── feature_importance/      # Feature importance for tree models
+│   ├── metrics_comparison_csv/  # All model comparison (CSV)
+│   └── metrics_comparison_json/ # All model comparison (JSON)
+│
+└── ml_multi_models_min/         # Step 6: Multi-model comparison results (min price)
+    ├── models/
+    ├── predictions_sample/
+    ├── feature_importance/
+    ├── metrics_comparison_csv/
+    └── metrics_comparison_json/
 ```
 
-### Dataproc 模式 (--mode dataproc)
+### Dataproc Mode (--mode dataproc)
 ```
 gs://your-bucket/
 ├── data/
-│   └── master_df.csv            # 上传的原始数据
+│   └── master_df.csv            # Uploaded raw data
 ├── scripts/
-│   ├── spark_etl_master.py      # 上传的脚本
+│   ├── spark_etl_master.py      # Uploaded scripts
 │   ├── spark_analysis_master.py
-│   └── spark_ml_master.py
+│   └── spark_ml_master_*.py
 └── output/
-    ├── master_parquet/          # 同本地模式结构
+    ├── master_parquet/          # Same structure as local mode
     ├── analytics/
-    └── ml_results/
+    └── ml_results_*/
 ```
 
 ---
 
-## 📊 详细文件说明
+## 📊 Detailed File Descriptions
 
-### 1️⃣ ETL 输出 (`master_parquet/`)
+### 1️⃣ ETL Output (`master_parquet/`)
 
-**文件格式**: Parquet (列式存储，高效压缩)
-**分区方式**: 按年份/月份分区
+**File Format**: Parquet (columnar storage, efficient compression)
+**Partitioning**: By year and month
 
-**包含字段**:
-- **基本信息**: event_id, event_title, artist, event_date
-- **场馆信息**: venue, city, state, venue_lat, venue_long
-- **分类**: genre, subgenre, event_type
-- **价格数据**:
+**Included Fields**:
+- **Basic Info**: event_id, event_title, artist, event_date
+- **Venue Info**: venue, city, state, venue_lat, venue_long
+- **Classification**: genre, subgenre, event_type
+- **Price Data**:
   - Ticketmaster: tm_min_price, tm_max_price, price_range
   - SeatGeek: sg_avg_price, sg_min_price, sg_max_price, sg_listing_count
   - StubHub: sh_max_price, sh_min_price, sh_total_postings, sh_total_tickets
-- **Spotify 数据**: spotify_followers, spotify_popularity, has_spotify_data
-- **时间特征**: year, month, weekday, is_weekend
-- **市场特征**: has_secondary_market
+- **Spotify Data**: spotify_followers, spotify_popularity, has_spotify_data
+- **Time Features**: year, month, weekday, is_weekend
+- **Market Features**: has_secondary_market
 
-**用途**: 
-- 作为后续分析和 ML 的标准化数据源
-- 支持 Spark SQL 快速查询
-- 可直接用于可视化工具（如 Tableau, PowerBI）
+**Usage**: 
+- Standardized data source for subsequent analysis and ML
+- Support for fast Spark SQL queries
+- Directly usable in visualization tools (e.g., Tableau, PowerBI)
 
 ---
 
-### 2️⃣ 分析输出 (`analytics/`)
+### 2️⃣ Analytics Output (`analytics/`)
 
 #### 📈 `events_per_year_genre/part-00000.csv`
-**列**: year, genre, event_count, avg_price, avg_popularity
+**Columns**: year, genre, event_count, avg_price, avg_popularity
 
-**示例数据**:
+**Sample Data**:
 ```csv
 year,genre,event_count,avg_price,avg_popularity
 2017,Rock,850,45.30,68.5
@@ -122,17 +125,17 @@ year,genre,event_count,avg_price,avg_popularity
 2018,Country,540,38.50,65.2
 ```
 
-**用途**: 
-- 生成时间趋势图（哪些类型音乐越来越火）
-- 分析不同年份音乐类型的价格变化
-- Spotify 热度与活动数量的相关性
+**Usage**: 
+- Generate time trend charts (which music genres are growing)
+- Analyze price changes for different genres over years
+- Correlation between Spotify popularity and event volume
 
 ---
 
 #### 🏙️ `top_cities/part-00000.csv`
-**列**: city, state, event_count, unique_artists, avg_price, secondary_market_events
+**Columns**: city, state, event_count, unique_artists, avg_price, secondary_market_events
 
-**示例数据**:
+**Sample Data**:
 ```csv
 city,state,event_count,unique_artists,avg_price,secondary_market_events
 New York,NY,450,280,68.50,320
@@ -140,17 +143,17 @@ Los Angeles,CA,380,245,62.30,290
 Nashville,TN,320,190,42.10,250
 ```
 
-**用途**:
-- 地图可视化（美国音乐活动热力图）
-- 识别音乐产业中心城市
-- 比较城市间的价格和二级市场活跃度
+**Usage**:
+- Map visualization (US music event heatmap)
+- Identify music industry hub cities
+- Compare prices and secondary market activity between cities
 
 ---
 
 #### 🎤 `top_artists/part-00000.csv`
-**列**: artist, event_count, avg_spotify_popularity, spotify_followers, avg_ticket_price, cities_performed
+**Columns**: artist, event_count, avg_spotify_popularity, spotify_followers, avg_ticket_price, cities_performed
 
-**示例数据**:
+**Sample Data**:
 ```csv
 artist,event_count,avg_spotify_popularity,spotify_followers,avg_ticket_price,cities_performed
 Taylor Swift,45,95.5,85000000,125.50,28
@@ -158,17 +161,17 @@ Ed Sheeran,38,92.3,78000000,98.30,25
 Bruno Mars,32,88.7,65000000,102.00,22
 ```
 
-**用途**:
-- 艺术家排名和热度分析
-- Spotify 粉丝数与票价的关系研究
-- 巡演规模分析（cities_performed）
+**Usage**:
+- Artist ranking and popularity analysis
+- Study relationship between Spotify followers and ticket prices
+- Tour scale analysis (cities_performed)
 
 ---
 
 #### 📅 `events_per_weekday/part-00000.csv`
-**列**: weekday, weekday_name, is_weekend, event_count, avg_price
+**Columns**: weekday, weekday_name, is_weekend, event_count, avg_price
 
-**示例数据**:
+**Sample Data**:
 ```csv
 weekday,weekday_name,is_weekend,event_count,avg_price
 1,Sunday,true,420,52.30
@@ -177,17 +180,17 @@ weekday,weekday_name,is_weekend,event_count,avg_price
 7,Saturday,true,820,65.80
 ```
 
-**用途**:
-- 周末 vs 工作日活动分布柱状图
-- 分析价格与日期的关系
-- 活动策划决策（最佳演出日选择）
+**Usage**:
+- Weekend vs. weekday event distribution bar chart
+- Analyze relationship between price and date
+- Event planning decisions (best performance day selection)
 
 ---
 
 #### 💰 `secondary_market_by_genre/part-00000.csv`
-**列**: genre, event_count, avg_seatgeek_price, avg_stubhub_max, avg_tm_price, avg_premium_pct
+**Columns**: genre, event_count, avg_seatgeek_price, avg_stubhub_max, avg_tm_price, avg_premium_pct
 
-**示例数据**:
+**Sample Data**:
 ```csv
 genre,event_count,avg_seatgeek_price,avg_stubhub_max,avg_tm_price,avg_premium_pct
 Rock,650,85.50,120.30,52.30,63.5
@@ -195,17 +198,17 @@ Pop,520,98.20,145.60,58.70,67.3
 Country,480,62.30,88.40,42.10,48.0
 ```
 
-**用途**:
-- 分析二级市场溢价情况
-- 不同类型音乐的倒票利润空间
-- Ticketmaster vs 二级市场价格对比
+**Usage**:
+- Analyze secondary market premium situation
+- Ticket scalping profit margins for different music genres
+- Ticketmaster vs. secondary market price comparison
 
 ---
 
 #### 🗺️ `price_by_state/part-00000.csv`
-**列**: state, event_count, min_price, avg_price, max_price, avg_price_range
+**Columns**: state, event_count, min_price, avg_price, max_price, avg_price_range
 
-**示例数据**:
+**Sample Data**:
 ```csv
 state,event_count,min_price,avg_price,max_price,avg_price_range
 CA,850,15.00,68.50,350.00,42.30
@@ -213,36 +216,36 @@ NY,720,20.00,72.30,420.00,48.50
 TX,580,12.00,52.10,280.00,35.20
 ```
 
-**用途**:
-- 美国各州票价地图
-- 地理经济差异分析
-- 高价/低价市场识别
+**Usage**:
+- US state-wise ticket price map
+- Geographic economic difference analysis
+- High-price/low-price market identification
 
 ---
 
-### 3️⃣ 单模型机器学习输出 (`ml_results/`)
+### 3️⃣ Single Model Machine Learning Output (`ml_results_max/` & `ml_results_min/`)
 
 #### 🔮 `predictions/part-00000.csv`
-**列**: event_id, artist, genre, city, event_date, tm_min_price, sg_avg_price, prediction, spotify_popularity, spotify_followers
+**Columns**: event_id, artist, genre, city, event_date, tm_min_price, prediction, spotify_popularity
 
-**示例数据**:
+**Sample Data**:
 ```csv
-event_id,artist,genre,city,event_date,tm_min_price,sg_avg_price,prediction,spotify_popularity,spotify_followers
-Z7r9jZ1AdF8KP,Imagine Dragons,Rock,Boston,2017-08-15,89.0,125.50,118.30,85,12500000
-vvG1iZ9Q89yI8,Ariana Grande,Pop,Miami,2017-09-22,95.0,142.80,138.90,92,45000000
+event_id,artist,genre,city,event_date,actual_price,prediction,spotify_popularity
+Z7r9jZ1AdF8KP,Imagine Dragons,Rock,Boston,2017-08-15,89.0,118.30,85
+vvG1iZ9Q89yI8,Ariana Grande,Pop,Miami,2017-09-22,95.0,138.90,92
 ```
 
-**用途**:
-- 评估模型预测准确性（actual vs predicted）
-- 识别预测误差大的异常活动
-- 为新活动定价提供参考
+**Usage**:
+- Evaluate model prediction accuracy (actual vs predicted)
+- Identify anomalous events with large prediction errors
+- Provide references for pricing new events
 
 ---
 
 #### 📊 `metrics/part-00000.csv`
-**列**: metric, value
+**Columns**: metric, value
 
-**示例数据**:
+**Sample Data**:
 ```csv
 metric,value
 RMSE,15.32
@@ -252,137 +255,163 @@ train_size,3200
 test_size,800
 ```
 
-**指标解释**:
-- **RMSE** (Root Mean Squared Error): 预测误差均方根，越小越好（单位：美元）
-- **MAE** (Mean Absolute Error): 平均绝对误差，平均偏差多少钱
-- **R²** (R-squared): 模型拟合度，0-1 之间，越接近 1 越好
-- **train_size/test_size**: 训练集和测试集大小
+**Metric Explanations**:
+- **RMSE** (Root Mean Squared Error): Prediction error root mean square, smaller is better (unit: dollars)
+- **MAE** (Mean Absolute Error): Average absolute error, average deviation amount
+- **R²** (R-squared): Model fit, between 0-1, closer to 1 is better
+- **train_size/test_size**: Training set and test set sizes
 
-**用途**:
-- 模型性能评估
-- 对比不同模型（rf vs gbt vs lr）
-- 项目报告中的关键指标展示
+**Usage**:
+- Model performance evaluation
+- Compare different models (rf vs gbt vs lr)
+- Key metrics for project reports
 
 ---
 
 #### ⭐ `feature_importance/part-00000.csv`
-**列**: feature, importance
+**Columns**: feature, importance
 
-**示例数据**:
+**Sample Data**:
 ```csv
 feature,importance
 spotify_popularity,0.2850
-tm_min_price,0.2340
-spotify_followers,0.1820
-genre_vec,0.1250
-sg_listing_count,0.0980
-state_vec,0.0760
+city_avg_price,0.2340
+state_avg_price,0.1820
+genre_avg_price,0.1250
+year,0.0980
+month,0.0760
 ```
 
-**用途**:
-- 识别影响票价的最关键因素
-- 可视化为横向柱状图
-- 解释模型决策逻辑
-- 业务洞察（哪些因素最重要）
+**Usage**:
+- Identify the most critical factors affecting ticket prices
+- Visualize as horizontal bar chart
+- Explain model decision logic
+- Business insights (which factors are most important)
 
 ---
 
-## 🔍 如何查找文件
+### 4️⃣ Multi-Model Comparison Output (`ml_multi_models_max/` & `ml_multi_models_min/`)
 
-### 本地模式
-```powershell
-# 查看所有输出
-ls -R output/
+#### 📊 `metrics_comparison_csv/part-00000.csv` ⭐ KEY FILE
+**Columns**: model, rmse, mae, r2
 
-# 查看 CSV 文件内容
-Get-Content output/analytics/top_cities/part-00000-*.csv | Select-Object -First 20
-
-# 用 Excel 打开（找到 part-00000 开头的 CSV 文件）
+**Sample Data**:
+```csv
+model,rmse,mae,r2
+random_forest,93.7,42.1,0.617    ← Usually best for max price
+gbt,95.2,43.5,0.605
+linear_regression,105.6,48.2,0.521
 ```
 
-### Dataproc 模式
+**Usage**:
+- **Primary use**: Compare 6 models to find the best one
+- Create bar charts for visualization
+- Key findings for project presentation
+
+---
+
+## 🔍 How to Find Files
+
+### Local Mode
 ```powershell
-# 列出 GCS 文件
+# View all output
+ls -R output/
+
+# View CSV file content
+Get-Content output/analytics/top_cities/part-00000-*.csv | Select-Object -First 20
+
+# Open with Excel (find part-00000 prefix CSV files)
+```
+
+### Dataproc Mode
+```powershell
+# List GCS files
 gsutil ls -r gs://your-bucket/output/
 
-# 下载所有结果到本地
+# Download all results to local
 gsutil -m cp -r gs://your-bucket/output/ ./
 
-# 下载单个文件
+# Download single file
 gsutil cp gs://your-bucket/output/analytics/top_cities/*.csv ./
 ```
 
-### 在 GCP Console 查看
-1. 打开 https://console.cloud.google.com/storage/
-2. 进入你的 bucket
-3. 导航到 `output/` 文件夹
-4. 点击文件可以直接预览或下载
+### View in GCP Console
+1. Open https://console.cloud.google.com/storage/
+2. Navigate to your bucket
+3. Go to `output/` folder
+4. Click files to preview or download directly
 
 ---
 
-## 📈 推荐可视化方案
+## 📈 Recommended Visualization Approaches
 
-### 使用这些 CSV 文件可以创建：
+### Using these CSV files, you can create:
 
-1. **时间趋势图** (`events_per_year_genre`)
-   - 折线图：各音乐类型随时间的活动数量变化
+1. **Time Trend Charts** (`events_per_year_genre`)
+   - Line chart: event volume changes by genre over time
 
-2. **地理热力图** (`top_cities`, `price_by_state`)
-   - 美国地图：城市活动密度
-   - 州级票价分布
+2. **Geographic Heatmap** (`top_cities`, `price_by_state`)
+   - US map: city event density
+   - State-level price distribution
 
-3. **艺术家排行榜** (`top_artists`)
-   - 横向柱状图：Top 20 艺术家
-   - 散点图：Spotify 粉丝数 vs 平均票价
+3. **Artist Leaderboard** (`top_artists`)
+   - Horizontal bar chart: Top 20 artists
+   - Scatter plot: Spotify followers vs. average ticket price
 
-4. **价格分析** (`secondary_market_by_genre`, `price_by_state`)
-   - 箱线图：各类型音乐价格分布
-   - 柱状图：二级市场溢价率对比
+4. **Price Analysis** (`secondary_market_by_genre`, `price_by_state`)
+   - Box plot: price distribution by genre
+   - Bar chart: secondary market premium rate comparison
 
-5. **ML 结果展示** (`predictions`, `feature_importance`)
-   - 散点图：实际价格 vs 预测价格
-   - 横向柱状图：特征重要性排名
+5. **ML Results Display** (`predictions`, `feature_importance`)
+   - Scatter plot: actual price vs. predicted price
+   - Horizontal bar chart: feature importance ranking
 
 ---
 
-## 💡 快速验证输出
+## 💡 Quick Validation of Output
 
-运行完成后，检查这些关键文件：
+After running, check these key files:
 
 ```powershell
-# 检查 ETL 输出
+# Check ETL output
 ls output/master_parquet/year=2017/
 
-# 查看分析结果行数（应该有数据）
+# View analysis result row count (should have data)
 (Get-Content output/analytics/top_cities/*.csv).Count
 
-# 查看 ML 评估指标
-Get-Content output/ml_results/metrics/*.csv
+# View ML evaluation metrics
+Get-Content output/ml_results_max/metrics/*.csv
 
-# 查看多模型对比结果
-Get-Content output/ml_multi_models/metrics_comparison_csv/*.csv
+# View multi-model comparison results
+Get-Content output/ml_multi_models_max/metrics_comparison_csv/*.csv
 ```
 
 ---
 
-## 🎓 项目总结
+## 🎓 Project Summary
 
-### 完整流程
-1. **ETL**: 清洗 5102 条活动数据，提取 30+ 特征
-2. **Analytics**: 6 个维度统计分析（年份趋势、城市排名、艺术家热度等）
-3. **Single ML**: RandomForest 单模型训练
-4. **Multi ML**: 6 种算法对比（Linear Regression, Lasso, Elastic Net, Decision Tree, Random Forest, GBT）
+### Complete Pipeline
+1. **ETL**: Clean 5,102 event records, extract 30+ features
+2. **Analytics**: 6-dimensional statistical analysis (year trends, city rankings, artist popularity, etc.)
+3. **Single ML (MAX)**: RandomForest single model training (predict max price)
+4. **Multi ML (MAX)**: 6 algorithm comparison (predict max price)
+5. **Single ML (MIN)**: RandomForest single model training (predict min price)
+6. **Multi ML (MIN)**: 6 algorithm comparison (predict min price)
 
-### 输出文件总数
-- **ETL**: 1 个 Parquet 数据集（按年月分区）
-- **Analytics**: 6 个 CSV 文件（统计分析结果）
-- **Single ML**: 3 个文件（预测、指标、特征重要性）
-- **Multi ML**: 20+ 文件（6 个模型 + 对比指标 + 样例预测 + 特征重要性）
+### Output File Count
+- **ETL**: 1 Parquet dataset (partitioned by year/month)
+- **Analytics**: 6 CSV files (statistical analysis results)
+- **Single ML**: 2 sets of results (max price + min price, 3-4 files per set)
+- **Multi ML**: 2 sets of results (max price + min price, 20+ files per set)
 
-### 技术栈
-- **大数据处理**: Apache Spark, PySpark
-- **机器学习**: Spark MLlib (6 种回归算法)
-- **云平台**: Google Cloud Dataproc, GCS
-- **数据源**: Ticketmaster, SeatGeek, StubHub, Spotify
+### Technology Stack
+- **Big Data Processing**: Apache Spark, PySpark
+- **Machine Learning**: Spark MLlib (6 regression algorithms)
+- **Cloud Platform**: Google Cloud Dataproc, GCS
+- **Data Sources**: Ticketmaster, SeatGeek, StubHub, Spotify
 
-所有文件都是 **CSV 格式**（除了 Parquet 和模型文件），可以直接用 Excel、Python pandas 或可视化工具打开！
+All files are in **CSV format** (except Parquet and model files), directly openable with Excel, Python pandas, or visualization tools!
+
+---
+
+**Last Updated**: December 18, 2025

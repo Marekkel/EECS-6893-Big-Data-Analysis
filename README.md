@@ -1,460 +1,314 @@
-# EECS-6893 Big Data Analysis - 项目文档
+# EECS-6893 Big Data Analysis - Concert Ticket Pricing Project
+
+A comprehensive big data analysis and machine learning pipeline for predicting concert ticket prices using Apache Spark and Google Cloud Platform.
 
 ---
 
-## 项目简介
+## 📋 Table of Contents
 
-本项目基于 **多源音乐活动数据集**（整合 Ticketmaster、SeatGeek、StubHub、Spotify 数据）构建了完整的大数据分析流程，涵盖 **ETL 处理、多维度统计分析和多模型机器学习票价预测**。通过 **Apache Spark 分布式计算框架** 和 **Google Cloud Dataproc**，实现了对大规模音乐活动数据的智能分析与**一级市场票价预测建模**（基于艺人热度、地点、时间等特征预浌 Ticketmaster 最高价和最低价）。
-
----
-
-## 核心功能
-
-1. **分布式 ETL 处理 (`spark_etl_master.py`)**
-   - 解析 master_df.csv 中的列表字段（艺术家、Spotify 数据）
-   - 类型转换与特征工程（价格范围、Spotify 数据标记、二级市场标记）
-   - 输出按年月分区的 Parquet 格式数据
-
-2. **多维度统计分析 (`spark_analysis_master.py`)**
-   - **6 大分析维度**：年度类型趋势、城市热度 Top 50、艺术家人气 Top 100、星期分布、二级市场溢价、各州价格对比
-   - 输出 CSV 分析报告
-
-3. **单模型训练 (`spark_ml_master.py`)**
-   - 支持 3 种算法选择：Random Forest / GBT / Linear Regression
-   - 特征工程：StringIndexer + OneHotEncoder + StandardScaler
-   - 预测目标：Ticketmaster 最高票价（tm_price_max）或最低票价（tm_price_min）
-   - 支持选择预测目标：--target max 或 --target min
-
-4. **多模型对比训练 (`spark_ml_multi_models.py`)**
-   - **6 大回归模型**：Linear Regression、Lasso、Elastic Net、Decision Tree、Random Forest、GBT
-   - 自动对比 RMSE/MAE/R² 性能指标
-   - 支持同时预测最高价和最低价（分别运行）
-   - 输出特征重要性、预测样本、模型对比报告
-
-5. **一键运行流程 (`run_master_pipeline.py`)**
-   - 支持本地模式和 Dataproc 模式
-   - 4 步完整流程：ETL → 分析 → 单模型训练 → 多模型对比
-   - 自动上传至 GCS（Dataproc 模式）
+- [Project Overview](#project-overview)
+- [Key Features](#key-features)
+- [Project Structure](#project-structure)
+- [Technology Stack](#technology-stack)
+- [Quick Start](#quick-start)
+- [Documentation](#documentation)
+- [License](#license)
 
 ---
 
-## 项目结构
+## 🎯 Project Overview
+
+This project integrates **multi-source concert event data** from Ticketmaster, SeatGeek, StubHub, and Spotify to build a complete big data analytics pipeline. It includes:
+
+- **ETL Processing**: Clean and transform 5,102 concert events from 2017
+- **Multi-Dimensional Analytics**: 6 analytical perspectives (geographic, temporal, genre-based)
+- **Machine Learning**: Predict Ticketmaster primary market prices (both max and min prices)
+- **Model Comparison**: Train and compare 6 regression algorithms
+- **Cloud Deployment**: Fully deployable on Google Cloud Platform (Dataproc + Cloud Run + Storage)
+- **Web Application**: Interactive price prediction interface
+
+**Data Sources**: Ticketmaster + SeatGeek + StubHub + Spotify  
+**Data Volume**: 5,102 concert events from 2017  
+**Prediction Target**: Ticketmaster primary market ticket prices (max and min)
+
+---
+
+## ✨ Key Features
+
+### 1. **Distributed ETL Processing** (`training/spark_etl_master.py`)
+- Parse complex nested data structures (artist lists, Spotify metrics)
+- Type conversion and feature engineering
+- Output: Parquet format partitioned by year and month
+
+### 2. **Multi-Dimensional Analytics** (`training/spark_analysis_master.py`)
+- **6 Analysis Dimensions**:
+  1. Year × Genre trends
+  2. Top 50 cities by event volume
+  3. Top 100 artists ranked by Spotify popularity
+  4. Weekday distribution analysis
+  5. Secondary market premium analysis
+  6. State-wise price comparison
+- Output: 6 CSV reports
+
+### 3. **Single-Model Training** (`training/spark_ml_master_max.py` & `spark_ml_master_min.py`)
+- **3 Algorithm Choices**: Random Forest / GBT / Linear Regression
+- **Feature Engineering**: Average encoding for categorical variables
+- **Dual Prediction**: Separate models for max price and min price
+- Output: Predictions, metrics (RMSE/MAE/R²), feature importance
+
+### 4. **Multi-Model Comparison** (`training/spark_ml_multi_models_max.py` & `spark_ml_multi_models_min.py`) ⭐
+- **6 Regression Models**:
+  - Linear Regression
+  - Lasso Regression (L1 regularization)
+  - Elastic Net (L1+L2 regularization)
+  - Decision Tree
+  - Random Forest
+  - Gradient Boosted Trees (GBT)
+- **Automatic Comparison**: RMSE, MAE, R² metrics
+- Output: Model comparison report, predictions, feature importance
+
+### 5. **One-Click Pipeline** (`training/run_master_pipeline.py`)
+- **Local Mode**: Run on-premise with Spark
+- **Dataproc Mode**: Run on Google Cloud Dataproc
+- **6-Step Pipeline**: ETL → Analytics → Single ML (MAX) → Multi ML (MAX) → Single ML (MIN) → Multi ML (MIN)
+
+### 6. **Production Deployment**
+- **Backend API** (`backend/`): FastAPI + Spark ML for real-time predictions
+- **Frontend** (`frontend/`): Interactive web interface
+- **Cloud Deployment** (`deployment/`): Docker + Cloud Run + Cloud Storage
+- **Fully Automated**: PowerShell scripts for one-click deployment
+
+---
+
+## 📁 Project Structure
 
 ```
 EECS-6893-Big-Data-Analysis/
-├── spark_etl_master.py           # Spark ETL 处理脚本
-├── spark_analysis_master.py      # Spark 多维度分析脚本
-├── spark_ml_master.py            # 单模型训练脚本（支持 RF/GBT/LR）
-├── spark_ml_multi_models.py      # 多模型对比训练脚本（6 种算法）
-├── run_master_pipeline.py        # 流程编排脚本（本地/Dataproc）
-├── README.md                     # 项目文档
-├── QUICKSTART.md                 # 快速入门指南
-├── OUTPUT_GUIDE.md               # 输出文件详细说明
-├── DATAPROC_SETUP.md             # Dataproc 部署指南
-├── dataproc_config.json          # Dataproc 配置文件
+├── README.md                     # Main documentation
+├── QUICKSTART.md                 # Quick start guide
+├── OUTPUT_GUIDE.md               # Output files reference
+├── DATAPROC_SETUP.md             # Dataproc setup guide
+├── GCP_DEPLOYMENT_GUIDE.md       # Complete GCP deployment guide
+├── dataproc_config.json          # Dataproc configuration
+│
 ├── data/
-│   └── master_df.csv             # 主数据集（5102 条记录，2017 音乐活动）
+│   └── master_df.csv             # Main dataset (5,102 events)
+│
+├── training/                     # Training scripts directory
+│   ├── run_master_pipeline.py    # Pipeline orchestration script
+│   ├── spark_etl_master.py       # ETL processing
+│   ├── spark_analysis_master.py  # Multi-dimensional analytics
+│   ├── spark_ml_master_max.py    # Single model (max price)
+│   ├── spark_ml_master_min.py    # Single model (min price)
+│   ├── spark_ml_multi_models_max.py  # Multi-model comparison (max)
+│   └── spark_ml_multi_models_min.py  # Multi-model comparison (min)
+│
+├── backend/                      # Backend API
+│   ├── app_gcp.py                # FastAPI application
+│   ├── predictor_gcp.py          # Spark ML predictor
+│   ├── requirements.txt          # Python dependencies
+│   └── README.md                 # Backend documentation
+│
+├── frontend/                     # Frontend web interface
+│   └── index.html                # Main HTML file
+│
+├── deployment/                   # Deployment scripts
+│   ├── Dockerfile                # Docker configuration
+│   ├── cloudbuild.yaml           # Cloud Build configuration
+│   ├── deploy_to_gcp.ps1         # Backend deployment script
+│   └── deploy_frontend.ps1       # Frontend deployment script
+│
 ├── tools/
-│   └── view_parquet.py           # Parquet 文件查看工具
-└── [输出目录 - 本地/GCS]
-    ├── master_parquet/           # ETL 处理后的 Parquet 数据
-    ├── analytics/                # 6 个分析结果 CSV 文件
-    ├── ml_results/               # 单模型训练结果
-    └── ml_multi_models/          # 多模型训练结果
-        ├── models/               # 6 个训练好的模型
-        ├── predictions_sample/   # 各模型预测样本
-        ├── feature_importance/   # 树模型特征重要性
-        └── metrics_comparison/   # 模型性能对比报告
+│   └── view_parquet.py           # Parquet file viewer utility
+│
+├── price_avg/                    # Pre-computed average prices
+├── result/                       # Jupyter notebooks for analysis
+└── output/                       # Generated output
+    ├── master_parquet/           # Cleaned data (Parquet)
+    ├── analytics/                # Analytics results (6 CSV files)
+    ├── ml_results_max/           # Single model results (max price)
+    ├── ml_results_min/           # Single model results (min price)
+    ├── ml_multi_models_max/      # Multi-model results (max price)
+    └── ml_multi_models_min/      # Multi-model results (min price)
 ```
 
 ---
 
-## 功能模块详解
+## 🛠️ Technology Stack
 
-### 1. 数据源：master_df.csv
+### Big Data & Machine Learning
+- **Apache Spark 3.x** - Distributed data processing
+- **PySpark** - Python API for Spark
+- **Spark MLlib** - Machine learning library (6 regression algorithms)
 
-**数据集概况：**
-- **记录数：** 5102 条音乐活动数据
-- **时间跨度：** 2017 年音乐活动
-- **数据来源：** 整合 Ticketmaster、SeatGeek、StubHub、Spotify 四大平台数据
+### Backend & API
+- **FastAPI** - Modern web framework
+- **Uvicorn** - ASGI server
+- **Spark ML** - Real-time model inference
 
-**核心字段：**
-- **活动信息：** event_id, event_name, event_date, genre, subgenre, city, state, country
-- **一级市场价格：** tm_price_min, tm_price_max（Ticketmaster）
-- **二级市场价格：** sg_avg_price, sg_lowest_price, sh_list_price（SeatGeek/StubHub）
-- **Spotify 数据：** artists（列表）, spotify_followers（列表）, spotify_popularity（列表）
-- **地理信息：** latitude, longitude
+### Cloud Infrastructure
+- **Google Cloud Dataproc** - Managed Spark clusters
+- **Google Cloud Run** - Serverless container platform
+- **Google Cloud Storage** - Object storage for models and data
 
-**数据质量：**
-- 所有活动均包含一级市场票价数据（100% 覆盖）
-- 二级市场数据覆盖率：约 60%（仅用于分析，不用于预测）
-- Spotify 艺术家数据覆盖率：约 75%（作为重要预测特征）
+### Frontend
+- **HTML/CSS/JavaScript** - Interactive web interface
+- **Chart.js** - Data visualization
+
+### Development Tools
+- **Docker** - Containerization
+- **PowerShell** - Deployment automation
+- **Python 3.10+** - Primary programming language
 
 ---
 
-### 2. Spark ETL 处理 (`spark_etl_master.py`)
+## 🚀 Quick Start
 
-**功能：** 解析 CSV 数据，进行类型转换与特征工程
+### Prerequisites
 
-**主要处理：**
-1. **列表字段解析：** 从字符串列表提取第一个元素（artists, spotify_followers, spotify_popularity）
-2. **类型转换：** 价格字段转 DoubleType，日期字段转 DateType，坐标转 DoubleType
-3. **特征工程：**
-   - `price_range`：Ticketmaster 价格区间（max - min）
-   - `has_spotify_data`：是否有 Spotify 数据（布尔值）
-   - `has_secondary_market`：是否有二级市场数据（布尔值）
-4. **时间特征提取：** year, month, weekday
+1. **For Training (Local)**:
+   - Python 3.7+ 
+   - Apache Spark 3.x
+   - Java 8 or 11
 
-**运行方式：**
-```bash
-# 本地模式
+2. **For Training (Cloud)**:
+   - Google Cloud SDK
+   - GCP account with Dataproc enabled
+   - GCS bucket
+
+3. **For Deployment**:
+   - Docker (optional)
+   - GCP account with Cloud Run enabled
+
+### Option 1: Local Training
+
+```powershell
+# Navigate to training directory
+cd training
+
+# Run complete pipeline (ETL → Analytics → ML)
 python run_master_pipeline.py --mode local
 
-# Dataproc 模式
+# Or run from project root
+python training/run_master_pipeline.py --mode local
+```
+
+**Expected Output**: `output/` directory with all results
+
+**Estimated Time**: 10-20 minutes (depending on machine specs)
+
+### Option 2: Cloud Training (Dataproc)
+
+```powershell
+# 1. Configure GCP settings
+# Edit dataproc_config.json with your project details
+
+# 2. Run on Dataproc
+cd training
 python run_master_pipeline.py --mode dataproc
 ```
 
-**输出：** `master_parquet/` - 按年月分区的 Parquet 数据
+**Expected Output**: Results in GCS bucket `gs://your-bucket/output/`
 
----
+**See**: [DATAPROC_SETUP.md](DATAPROC_SETUP.md) for detailed setup
 
-### 3. Spark 数据分析 (`spark_analysis_master.py`)
+### Option 3: Deploy Web Application
 
-**功能：** 6 大维度统计分析，生成业务洞察报告
+```powershell
+# 1. Deploy backend API to Cloud Run
+cd deployment
+.\deploy_to_gcp.ps1 -ProjectId "your-project-id" -BucketName "your-bucket"
 
-**分析维度：**
-
-1. **events_per_year_genre** - 年度类型趋势分析
-   - 各音乐类型的年度活动数量统计
-
-2. **top_cities** - 城市热度 Top 50 排名
-   - 按活动数量排序的城市排名
-
-3. **top_artists** - 艺术家人气 Top 100 排名
-   - 基于 Spotify 粉丝数和人气值的综合排名
-
-4. **events_per_weekday** - 星期分布分析
-   - 各星期几的活动数量统计
-
-5. **secondary_market_by_genre** - 二级市场溢价分析
-   - 各音乐类型的平均一级/二级市场价格对比
-   - 溢价率计算（secondary_premium）
-
-6. **price_by_state** - 各州价格对比
-   - 各州的平均票价统计
-
-**输出：** `analytics/` - 6 个 CSV 文件
-
----
-
-### 4. 单模型训练 (`spark_ml_master.py`)
-
-**功能：** 训练单个机器学习模型预浌 Ticketmaster 一级市场票价
-
-**预测目标：**
-- `tm_price_max`：Ticketmaster 最高票价（通过 --target max 指定）
-- `tm_price_min`：Ticketmaster 最低票价（通过 --target min 指定）
-
-**特征工程：**
-- **类别特征：** genre, subgenre, state
-- **数值特征：** spotify_popularity, spotify_followers, year, month, weekday, latitude, longitude
-- **编码方式：** StringIndexer + OneHotEncoder + StandardScaler
-- **注意：** 不再使用一级市场价格和二级市场价格作为特征，仅使用艺人热度、地点、时间等基础特征
-
-**支持算法：**
-- `--model-type rf`：Random Forest（默认）
-- `--model-type gbt`：Gradient Boosted Trees
-- `--model-type lr`：Linear Regression
-
-**运行示例：**
-```bash
-# 训练随机森林模型（预测最高价）
-python run_master_pipeline.py --mode local --model-type rf --target max
-
-# 训练随机森林模型（预测最低价）
-python run_master_pipeline.py --mode local --model-type rf --target min
+# 2. Deploy frontend to Cloud Storage
+.\deploy_frontend.ps1 -ProjectId "your-project-id" -FrontendBucketName "your-frontend-bucket"
 ```
 
-**输出：**
-- `ml_results/predictions_max/` 或 `predictions_min/`：测试集预浌结果
-- `ml_results/metrics_max/` 或 `metrics_min/`：评估指标（RMSE/MAE/R²）
-- `ml_results/models/`：训练好的模型
-- `ml_results/feature_importance_max/` 或 `feature_importance_min/`：特征重要性（树模型）
+**Result**: Fully functional web application accessible via public URL
+
+**See**: [GCP_DEPLOYMENT_GUIDE.md](GCP_DEPLOYMENT_GUIDE.md) for complete guide
 
 ---
 
-### 5. 多模型对比训练 (`spark_ml_multi_models.py`)
+## 📚 Documentation
 
-**功能：** 同时训练 6 种回归模型，自动对比性能
+### Core Documentation
+- **[README.md](README.md)** - This file (project overview)
+- **[QUICKSTART.md](QUICKSTART.md)** - Step-by-step quick start guide
+- **[OUTPUT_GUIDE.md](OUTPUT_GUIDE.md)** - Detailed explanation of all output files
 
-**6 大回归模型：**
-1. **Linear Regression** - 线性回归（基准模型）
-2. **Lasso (α=0.1)** - L1 正则化线性回归
-3. **Elastic Net (α=0.1, λ=0.5)** - L1+L2 正则化
-4. **Decision Tree (depth=10)** - 决策树回归
-5. **Random Forest (100 trees, depth=10)** - 随机森林
-6. **Gradient Boosted Trees (100 trees, depth=5)** - 梯度提升树
+### Setup Guides
+- **[DATAPROC_SETUP.md](DATAPROC_SETUP.md)** - Configure and use Google Cloud Dataproc
+- **[GCP_DEPLOYMENT_GUIDE.md](GCP_DEPLOYMENT_GUIDE.md)** - Deploy backend API and frontend
 
-**评估指标：**
-- RMSE（均方根误差）- 越小越好
-- MAE（平均绝对误差）- 越小越好
-- R²（决定系数）- 越大越好（最大值 1.0）
-
-**输出结构：**
-```
-ml_multi_models/
-├── models_max/                  # 预测最高价的6个模型
-│   ├── LinearRegression/
-│   ├── Lasso/
-│   ├── ElasticNet/
-│   ├── DecisionTree/
-│   ├── RandomForest/
-│   └── GBT/
-├── models_min/                  # 预测最低价的6个模型
-├── predictions_sample_max/      # 最高价预浌样本
-├── predictions_sample_min/      # 最低价预测样本
-├── feature_importance_max/      # 最高价特征重要性
-├── feature_importance_min/      # 最低价特征重要性
-├── metrics_comparison_max_csv/  # 最高价模型对比
-└── metrics_comparison_min_csv/  # 最低价模型对比
-```
-
-**关键指标对比文件：** `metrics_comparison_max_csv/` 和 `metrics_comparison_min_csv/`
-```
-Target         Model               RMSE    MAE     R²
-tm_price_max   LinearRegression    105.67  78.23   0.721
-tm_price_max   RandomForest        92.45   65.89   0.798
-tm_price_min   LinearRegression    45.32   32.15   0.765
-tm_price_min   RandomForest        38.21   25.43   0.812
-...
-```
+### Component Documentation
+- **[backend/README.md](backend/README.md)** - Backend API documentation
+- **[backend/QUICKSTART.md](backend/QUICKSTART.md)** - Backend quick reference
 
 ---
 
-### 6. 流程编排 (`run_master_pipeline.py`)
+## 📊 Key Results
 
-**功能：** 一键运行完整分析流程
+### Dataset Statistics
+- **Total Events**: 5,102 concerts
+- **Time Period**: 2017
+- **Data Sources**: 4 platforms (Ticketmaster, SeatGeek, StubHub, Spotify)
+- **Features**: 30+ features after engineering
 
-**支持模式：**
-- `--mode local`：本地 Spark 模式
-- `--mode dataproc`：Google Cloud Dataproc 模式
+### Model Performance
+| Model | RMSE (Max) | MAE (Max) | R² (Max) | RMSE (Min) | MAE (Min) | R² (Min) |
+|-------|------------|-----------|----------|------------|-----------|----------|
+| Random Forest | 93.7 | 42.1 | 0.617 | 72.3 | 35.8 | 0.608 |
+| GBT | 95.2 | 43.5 | 0.605 | 74.1 | 36.9 | 0.595 |
+| Linear Regression | 105.6 | 48.2 | 0.521 | 82.4 | 41.3 | 0.510 |
 
-**4 步完整流程：**
-1. **Step 1 - ETL：** 解析 master_df.csv → master_parquet/
-2. **Step 2 - Analytics：** 统计分析 → analytics/（6 个 CSV）
-3. **Step 3 - Single ML：** 单模型训练 → ml_results/
-4. **Step 4 - Multi ML：** 多模型对比 → ml_multi_models/
+**Best Model**: Random Forest (for both max and min price prediction)
 
-**Dataproc 模式特性：**
-- 自动上传脚本和数据到 GCS
-- 自动提交 4 个 Dataproc 作业
-- 实时显示作业状态
-
-**运行示例：**
-```bash
-# 本地完整流程
-python run_master_pipeline.py --mode local
-
-# Dataproc 完整流程（需先配置 dataproc_config.json）
-python run_master_pipeline.py --mode dataproc
-
-# 仅运行单模型训练（随机森林）
-python run_master_pipeline.py --mode local --model-type rf
-```
+### Output Files
+- **6 Analytics Reports** (CSV format)
+- **2 Trained Models** (Random Forest for max and min prices)
+- **12 Model Comparisons** (6 models × 2 targets)
+- **Feature Importance Rankings** for tree-based models
 
 ---
 
-## 技术栈
+## 🎯 Use Cases
 
-- **数据处理：** Apache Spark (PySpark 3.x)
-- **机器学习：** Spark MLlib (6 种回归算法)
-- **云平台：** Google Cloud Platform (Dataproc, Cloud Storage)
-- **数据格式：** CSV, Parquet
-- **编程语言：** Python 3.7+
-
----
-
-## 环境要求
-
-### 本地环境
-```bash
-# 安装 PySpark
-pip install pyspark
-
-# 可选：安装本地 Spark（用于大规模数据处理）
-# 下载地址：https://spark.apache.org/downloads.html
-```
-
-### Google Cloud Dataproc
-- Python 3.7+
-- PySpark 3.x
-- Spark MLlib
-- 配置 `dataproc_config.json`
-
-详细配置指南：**[DATAPROC_SETUP.md](DATAPROC_SETUP.md)**
+1. **Concert Organizers**: Optimize ticket pricing strategies
+2. **Music Industry Analysis**: Understand market trends and artist popularity
+3. **Data Science Education**: Complete big data pipeline example
+4. **Research**: Study secondary market premium and pricing dynamics
 
 ---
 
-## 快速开始
+## 🤝 Contributing
 
-### 方法 1：本地运行（推荐用于开发测试）
-
-```bash
-# 完整流程（ETL → 分析 → 单模型 → 多模型）
-python run_master_pipeline.py --mode local
-
-# 仅运行 ETL
-python spark_etl_master.py \
-  --input data/master_df.csv \
-  --output master_parquet
-
-# 仅运行分析
-python spark_analysis_master.py \
-  --input master_parquet \
-  --output analytics
-
-# 仅运行单模型训练（随机森林）
-python spark_ml_master.py \
-  --input master_parquet \
-  --output ml_results \
-  --model-type rf
-
-# 仅运行多模型对比
-python spark_ml_multi_models.py \
-  --input master_parquet \
-  --output ml_multi_models
-```
+This is an academic project for EECS-6893 Big Data Analysis. Contributions and suggestions are welcome!
 
 ---
 
-### 方法 2：Google Cloud Dataproc（推荐用于生产环境）
+## 📄 License
 
-#### Step 1: 配置 Dataproc
-
-```bash
-# 1. 编辑配置文件
-# 填入你的 GCP 项目信息、集群名称、GCS bucket 等
-vim dataproc_config.json
-
-# 2. 创建 Dataproc 集群（如果还没有）
-gcloud dataproc clusters create your-cluster-name \
-  --region=us-east1 \
-  --num-workers=2 \
-  --master-machine-type=n1-standard-4 \
-  --worker-machine-type=n1-standard-4
-```
-
-详细配置指南：**[DATAPROC_SETUP.md](DATAPROC_SETUP.md)**
-
-#### Step 2: 一键运行完整流程
-
-```bash
-# Dataproc 模式（自动上传数据、提交 4 个作业）
-python run_master_pipeline.py --mode dataproc
-```
-
-**这会自动执行：**
-1. ✅ 上传 master_df.csv 到 GCS
-2. ✅ 上传 4 个 Spark 脚本到 GCS
-3. ✅ 提交 ETL 作业
-4. ✅ 提交分析作业
-5. ✅ 提交单模型训练作业
-6. ✅ 提交多模型对比作业
+MIT License - Feel free to use this project for educational purposes.
 
 ---
 
-## 输出文件说明
+## 👥 Authors
 
-详细的输出文件说明，请参考：**[OUTPUT_GUIDE.md](OUTPUT_GUIDE.md)**
+EECS-6893 Big Data Analysis - Final Project Team
 
-### 核心输出目录：
-
-1. **master_parquet/** - ETL 处理后的 Parquet 数据
-   - 按 year/month 分区存储
-   - 高效列式存储格式
-
-2. **analytics/** - 6 个统计分析 CSV 文件
-   - `events_per_year_genre.csv`：年度类型趋势
-   - `top_cities.csv`：城市热度 Top 50
-   - `top_artists.csv`：艺术家人气 Top 100
-   - `events_per_weekday.csv`：星期分布
-   - `secondary_market_by_genre.csv`：二级市场溢价分析
-   - `price_by_state.csv`：各州价格对比
-
-3. **ml_results/** - 单模型训练结果
-   - `predictions/`：测试集预测结果
-   - `metrics/`：评估指标（RMSE/MAE/R²）
-   - `models/`：训练好的模型
-   - `feature_importance/`：特征重要性
-
-4. **ml_multi_models/** - 多模型对比结果
-   - `models/`：6 个训练好的模型
-   - `predictions_sample/`：各模型预测样本
-   - `feature_importance/`：树模型特征重要性
-   - `metrics_comparison/`：**模型性能对比报告**（核心文件）
+**Institution**: Columbia University  
+**Course**: EECS-6893 Big Data Analysis  
+**Year**: 2024-2025
 
 ---
 
-## 项目亮点
+## 🔗 Related Links
 
-✅ **多源数据整合**：融合 Ticketmaster、SeatGeek、StubHub、Spotify 四大平台数据  
-✅ **完整大数据处理流程**：从 ETL 到分析建模全流程覆盖  
-✅ **多模型对比训练**：6 种回归算法自动对比，找出最优模型  
-✅ **分布式计算**：利用 Apache Spark 处理大规模数据  
-✅ **云原生架构**：支持 Google Cloud Dataproc 部署  
-✅ **多维度分析**：地域、时间、类型、艺术家人气、二级市场溢价  
-✅ **一级市场票价预测**：基于艺人热度、地点、时间预浌 Ticketmaster 最高价和最低价  
-✅ **一键运行流程**：支持本地和 Dataproc 两种模式  
-✅ **多目标预测**：同时支持预测最高价和最低价，全面了解价格区间
+- [Apache Spark Documentation](https://spark.apache.org/docs/latest/)
+- [Google Cloud Dataproc](https://cloud.google.com/dataproc)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Spark MLlib Guide](https://spark.apache.org/docs/latest/ml-guide.html)
 
 ---
 
-## 使用场景
-
-1. **音乐活动市场分析**：了解不同城市、音乐类型的市场热度
-2. **艺术家人气排名**：基于 Spotify 数据分析艺术家人气
-3. **一级市场票价预浌**：基于艺人热度、地点、时间预浌 Ticketmaster 票价，辅助主办方定价决策
-4. **二级市场溶价分析**：分析不同音乐类型的溶价情况
-5. **时间趋势分析**：了解活动在不同时间段的分布规律
-6. **特征重要性分析**：了解哪些因素（艺人热度、地域、类型等）对票价影响最大
-
----
-
-## 文档索引
-
-- **[README.md](README.md)** - 项目主文档（当前文件）
-- **[QUICKSTART.md](QUICKSTART.md)** - 快速入门指南
-- **[OUTPUT_GUIDE.md](OUTPUT_GUIDE.md)** - 输出文件详细说明
-- **[DATAPROC_SETUP.md](DATAPROC_SETUP.md)** - Dataproc 部署指南
-
----
-
-## 常见问题
-
-### Q1: 如何选择运行模式？
-- **本地模式：** 适合开发测试、数据量较小的场景
-- **Dataproc 模式：** 适合生产环境、数据量较大的场景
-
-### Q2: 如何查看模型性能对比？
-查看 `ml_multi_models/metrics_comparison/metrics_comparison.csv` 文件，对比 6 个模型的 RMSE/MAE/R² 指标。
-
-### Q3: 如何查看特征重要性？
-树模型（Decision Tree、Random Forest、GBT）的特征重要性保存在 `ml_multi_models/feature_importance/` 目录。
-
-### Q4: 如何修改模型参数？
-编辑 `spark_ml_master.py` 或 `spark_ml_multi_models.py`，修改模型超参数（如树的数量、深度等）。
-
-### Q5: 如何处理更大的数据集？
-将数据上传到 GCS，使用 Dataproc 模式运行，并根据数据规模调整集群配置。
-
----
-
-## 作者
-
-EECS-6893 Big Data Analysis - Final Project
-
----
-
-## License
-
-MIT License
+**Last Updated**: December 18, 2025

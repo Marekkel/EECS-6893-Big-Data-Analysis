@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Spark Multi-Model Training - master_df.csv data (MIN)
+Spark Multi-Model Training - master_df.csv data (MAX)
 
 Train six regression models to predict primary market prices:
   1. Linear Regression
@@ -14,16 +14,16 @@ Train six regression models to predict primary market prices:
 
 Usage:
 Local run:
-    spark-submit spark_ml_multi_models_min.py \
-      --input output/master_parquet \
-      --output output/ml_multi_models_min
+    spark-submit spark_ml_multi_models_max.py \
+      --input ../output/master_parquet \
+      --output ../output/ml_multi_models_max
 
 Dataproc:
-    gcloud dataproc jobs submit pyspark spark_ml_multi_models_min.py \
+    gcloud dataproc jobs submit pyspark spark_ml_multi_models_max.py \
       --cluster=<cluster-name> \
       --region=us-east1 \
       -- --input gs://bucket/output/master_parquet \
-         --output gs://bucket/output/ml_multi_models_min
+         --output gs://bucket/output/ml_multi_models_max
 """
 
 import argparse
@@ -76,8 +76,8 @@ def main():
     print("Preparing data for ML...")
     df_ml = (
         df.filter(
-            F.col("tm_min_price").isNotNull() &
-            (F.col("tm_min_price") >= 0) &
+            F.col("tm_max_price").isNotNull() &
+            (F.col("tm_max_price") > 0) &
             F.col("artist").isNotNull()
         )
         # Fill missing values
@@ -99,13 +99,13 @@ def main():
 
     # Replace categorical labels with mean price to avoid high-cardinality issues
     # Global average used as fallback for unseen categories
-    global_avg = train_df.select(F.avg("tm_min_price")).first()[0]  
+    global_avg = train_df.select(F.avg("tm_max_price")).first()[0]  
 
     def add_avg_encoding(df, ref_df, col):
         avg_df = (
             ref_df
             .groupBy(col)
-            .agg(F.avg("tm_min_price").alias(f"{col}_avg_price"))
+            .agg(F.avg("tm_max_price").alias(f"{col}_avg_price"))
         )
         return (
             df.join(avg_df, on=col, how="left")
@@ -156,14 +156,14 @@ def main():
     # 1. Standard linear regression
     lr = LinearRegression(
         featuresCol="features",
-        labelCol="tm_min_price",
+        labelCol="tm_max_price",
         maxIter=100
     )
 
     # 2. Lasso regression (L1 regularization)
     lasso = LinearRegression(
         featuresCol="features",
-        labelCol="tm_min_price",
+        labelCol="tm_max_price",
         regParam=0.1,
         elasticNetParam=1.0,  
         maxIter=100
@@ -172,7 +172,7 @@ def main():
     # 3. Elastic Net (L1 + L2 regularization)
     elastic_net = LinearRegression(
         featuresCol="features",
-        labelCol="tm_min_price",
+        labelCol="tm_max_price",
         regParam=0.1,
         elasticNetParam=0.7,  
         maxIter=100
@@ -181,7 +181,7 @@ def main():
     # 4. Decision tree
     dt = DecisionTreeRegressor(
         featuresCol="features",
-        labelCol="tm_min_price",
+        labelCol="tm_max_price",
         maxDepth=8,
         seed=42
     )
@@ -189,7 +189,7 @@ def main():
     # 5. Random forest
     rf = RandomForestRegressor(
         featuresCol="features",
-        labelCol="tm_min_price",
+        labelCol="tm_max_price",
         numTrees=100,
         maxDepth=20,
         seed=42
@@ -198,7 +198,7 @@ def main():
     # 6. Gradient boosting tree
     gbt = GBTRegressor(
         featuresCol="features",
-        labelCol="tm_min_price",
+        labelCol="tm_max_price",
         maxIter=50,
         maxDepth=2,
         seed=42
@@ -218,17 +218,17 @@ def main():
     # Train and evaluate all models
     evaluator_rmse = RegressionEvaluator(
         metricName="rmse",
-        labelCol="tm_min_price",
+        labelCol="tm_max_price",
         predictionCol="prediction"
     )
     evaluator_mae = RegressionEvaluator(
         metricName="mae",
-        labelCol="tm_min_price",
+        labelCol="tm_max_price",
         predictionCol="prediction"
     )
     evaluator_r2 = RegressionEvaluator(
         metricName="r2",
-        labelCol="tm_min_price",
+        labelCol="tm_max_price",
         predictionCol="prediction"
     )
 
@@ -263,9 +263,9 @@ def main():
             "event_id",
             "artist",
             "genre",
-            F.col("tm_min_price").alias("actual_price"),
+            F.col("tm_max_price").alias("actual_price"),
             F.col("prediction").alias("predicted_price"),
-            F.abs(F.col("tm_min_price") - F.col("prediction")).alias("error")
+            F.abs(F.col("tm_max_price") - F.col("prediction")).alias("error")
         ).limit(100)
         
         sample_output = f"{args.output}/predictions_sample/{model_name}"

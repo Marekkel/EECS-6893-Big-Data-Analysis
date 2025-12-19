@@ -1,0 +1,70 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Local data (will mount from GCS)
+output/
+data/
+result/
+price_avg/
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+
+# Documentation (not needed in container)
+*.md
+QUICKSTART.md
+README.md
+DATAPROC_SETUP.md
+OUTPUT_GUIDE.md
+INTEGRATION_GUIDE.md
+
+# Scripts (not needed in container)
+*.sh
+*.ps1
+run_master_pipeline.py
+spark_*.py
+test_*.py
+
+# Frontend (deployed separately)
+frontend/
+
+# Deployment scripts
+deployment/
+
+# Tools
+tools/
+
+# Config files
+dataproc_config.json
+.gcloudignore

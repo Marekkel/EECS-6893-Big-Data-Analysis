@@ -1,0 +1,53 @@
+# This file specifies files that are *not* uploaded to Google Cloud
+# using gcloud. It follows the same syntax as .gitignore, with the addition of
+# "#!include" directives (which insert the entries of the given .gitignore-style
+# file at that point).
+
+.gcloudignore
+.git
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local data
+output/
+data/
+result/
+price_avg/
+onehot encoding method/
+model parameter selection/
+
+# Documentation
+*.md
+
+# Tests
+test_*.py
+
+# Spark training scripts (not needed in deployment)
+spark_*.py
+run_master_pipeline.py
+
+# Website (deployed separately)
+website/
+
+# Tools
+tools/
+
+# Config
+dataproc_config.json

@@ -1,0 +1,50 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'deployment/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/ticket-pricing-backend:latest', '.']
+  
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/ticket-pricing-backend:latest']
+  
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'ticket-pricing-api'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/ticket-pricing-backend:latest'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GCS_BUCKET=${_GCS_BUCKET},GCS_OUTPUT_PATH=output,GCS_DATA_PATH=data,SPARK_DRIVER_MEMORY=6g,SPARK_EXECUTOR_MEMORY=6g'
+      - '--memory'
+      - '8Gi'
+      - '--cpu'
+      - '4'
+      - '--timeout'
+      - '600'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '0'
+      - '--cpu-boost'
+      - '--port'
+      - '8080'
+
+images:
+  - 'gcr.io/$PROJECT_ID/ticket-pricing-backend:latest'
+
+substitutions:
+  _GCS_BUCKET: 'finalll_1'  # Replace with your bucket name
+
+timeout: '1200s'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
